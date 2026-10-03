@@ -165,12 +165,8 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASE_USER = os.getenv('DB_USER', '')
 DATABASE_PASSWORD = os.getenv('DB_PASSWORD', '')
-if os.getenv('WEBSITE_SITE_NAME') and not os.getenv('DB_HOST'):
-    raise ImproperlyConfigured('Set DB_HOST for the App Service database connection.')
 if bool(DATABASE_USER) != bool(DATABASE_PASSWORD):
     raise ImproperlyConfigured('DB_USER and DB_PASSWORD must both be configured.')
-if os.getenv('WEBSITE_SITE_NAME') and not DATABASE_USER:
-    raise ImproperlyConfigured('Set DB_USER and DB_PASSWORD for the App Service database connection.')
 
 DATABASE_OPTIONS = {
     'driver': os.getenv('DB_DRIVER', 'ODBC Driver 17 for SQL Server'),
