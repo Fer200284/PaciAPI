@@ -2,8 +2,8 @@ const loginForm = document.getElementById('loginForm');
 const errorMsg = document.getElementById('error-msg');
 const loginBtn = document.getElementById('loginBtn');
 
-const API_BASE = 'http://127.0.0.1:8000/api';
 const APP_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : window.location.origin;
+const API_BASE = `${APP_BASE}/api`;
 
 if (localStorage.getItem('accessToken')) {
     const volver = confirm('Ya tienes una sesión activa. ¿Deseas volver al dashboard?');

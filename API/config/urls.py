@@ -36,6 +36,7 @@ urlpatterns = [
     # Frontend estático
     path('', serve_frontend_page, {'filename': 'index.html'}, name='home'),
     path('login/', serve_frontend_page, {'filename': 'login.html'}, name='login'),
+    path('login.html', serve_frontend_page, {'filename': 'login.html'}),
     re_path(r'^(?P<path>.*\.(?:css|js|png|jpg|jpeg|svg|gif|webp|ico|woff|woff2|ttf|eot))$', serve_frontend_asset),
 
     # Endpoints para Swagger y Redoc

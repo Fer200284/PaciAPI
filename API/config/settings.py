@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 from apps.catalogos.settings_apps import CATALOGOS_SETTINGS_APPS
@@ -33,22 +35,33 @@ def get_bool_env(name, default=False):
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-secret-change-me')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = get_bool_env('DJANGO_DEBUG', True)
+DEBUG = get_bool_env('DJANGO_DEBUG', not bool(os.getenv('WEBSITE_SITE_NAME')))
+if not DEBUG and SECRET_KEY == 'dev-secret-change-me':
+    raise ImproperlyConfigured('Set DJANGO_SECRET_KEY when DEBUG is disabled.')
 
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],testserver').split(',')
     if host.strip()
 ]
+if os.getenv('WEBSITE_HOSTNAME'):
+    ALLOWED_HOSTS.append(os.environ['WEBSITE_HOSTNAME'])
 
 CORS_ALLOWED_ORIGINS = [
-    'http://127.0.0.1:8080',
-    'http://localhost:8080',
-    'http://127.0.0.1:8000',
-    'http://localhost:8000',
+    origin.strip()
+    for origin in os.getenv(
+        'CORS_ALLOWED_ORIGINS',
+        'http://127.0.0.1:8080,http://localhost:8080,http://127.0.0.1:8000,http://localhost:8000',
+    ).split(',')
+    if origin.strip()
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv('CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
+]
 
 if DEBUG:
     SECURE_SSL_REDIRECT = False
@@ -65,7 +78,7 @@ else:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
 
-if get_bool_env('USE_PROXY_HEADERS', False):
+if get_bool_env('USE_PROXY_HEADERS', bool(os.getenv('WEBSITE_SITE_NAME'))):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
@@ -90,6 +103,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -149,19 +163,31 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 
+DATABASE_USER = os.getenv('DB_USER', '')
+DATABASE_PASSWORD = os.getenv('DB_PASSWORD', '')
+if os.getenv('WEBSITE_SITE_NAME') and not os.getenv('DB_HOST'):
+    raise ImproperlyConfigured('Set DB_HOST for the App Service database connection.')
+if bool(DATABASE_USER) != bool(DATABASE_PASSWORD):
+    raise ImproperlyConfigured('DB_USER and DB_PASSWORD must both be configured.')
+if os.getenv('WEBSITE_SITE_NAME') and not DATABASE_USER:
+    raise ImproperlyConfigured('Set DB_USER and DB_PASSWORD for the App Service database connection.')
+
+DATABASE_OPTIONS = {
+    'driver': os.getenv('DB_DRIVER', 'ODBC Driver 17 for SQL Server'),
+    'extra_params': os.getenv('DB_EXTRA_PARAMS', 'TrustServerCertificate=yes;'),
+}
+if not DATABASE_USER:
+    DATABASE_OPTIONS['trusted_connection'] = 'yes'
+
 DATABASES = {
     'default': {
-         'ENGINE': 'mssql',
-         'NAME': 'BDTisma',
-         'HOST': '.',
-         'OPTIONS': {
-            'driver': 'ODBC Driver 17 for SQL Server',
-            'trusted_connection': 'yes',
-            'extra_params': 'TrustServerCertificate=yes',
-        },
+        'ENGINE': 'mssql',
+        'NAME': os.getenv('DB_NAME', 'BDTisma'),
+        'HOST': os.getenv('DB_HOST', '.'),
+        'USER': DATABASE_USER,
+        'PASSWORD': DATABASE_PASSWORD,
+        'OPTIONS': DATABASE_OPTIONS,
     },
-
-  
 }
 
 
@@ -202,6 +228,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
