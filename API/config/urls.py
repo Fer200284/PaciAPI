@@ -2,7 +2,7 @@ import mimetypes
 from pathlib import Path
 
 from django.contrib import admin
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
@@ -24,7 +24,12 @@ def serve_frontend_asset(request, path):
     return FileResponse(file_path.open('rb'), content_type=content_type or 'application/octet-stream')
 
 
+def health_check(request):
+    return JsonResponse({'status': 'ok'})
+
+
 urlpatterns = [
+    path('health/', health_check, name='health'),
     path('admin/', admin.site.urls),
 
     # Seguridad
