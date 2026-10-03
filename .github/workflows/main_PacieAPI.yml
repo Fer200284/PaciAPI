@@ -35,7 +35,7 @@ jobs:
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_83D6214694CC4DF398CF84D58A678DA4 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_C452B3320F634F6E81AE9826FD803F27 }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_197E44C5923C4C1F83E1D7CFE7A20336 }}
+          allow-no-subscriptions: true
 
       - name: Deploy API to Azure App Service
         uses: azure/webapps-deploy@v3
