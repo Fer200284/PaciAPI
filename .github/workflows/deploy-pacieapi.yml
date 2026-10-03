@@ -42,5 +42,6 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: PacieAPI
+          resource-group-name: PacienCareRG
           package: api-deploy.zip
           startup-command: gunicorn --chdir API config.wsgi:application --bind=0.0.0.0 --timeout 600
