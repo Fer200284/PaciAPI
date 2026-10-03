@@ -35,9 +35,7 @@ def get_bool_env(name, default=False):
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-secret-change-me')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = get_bool_env('DJANGO_DEBUG', not bool(os.getenv('WEBSITE_SITE_NAME')))
-if not DEBUG and SECRET_KEY == 'dev-secret-change-me':
-    raise ImproperlyConfigured('Set DJANGO_SECRET_KEY when DEBUG is disabled.')
+DEBUG = get_bool_env('DJANGO_DEBUG', True)
 
 ALLOWED_HOSTS = [
     host.strip()
@@ -78,7 +76,7 @@ else:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
 
-if get_bool_env('USE_PROXY_HEADERS', bool(os.getenv('WEBSITE_SITE_NAME'))):
+if get_bool_env('USE_PROXY_HEADERS', False):
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 
@@ -103,7 +101,6 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -224,7 +221,6 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
