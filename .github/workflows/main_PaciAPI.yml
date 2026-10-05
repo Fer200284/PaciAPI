@@ -1,4 +1,4 @@
-name: Deploy API to PacieAPI
+name: Deploy PaciAPI to Azure
 
 on:
   workflow_dispatch:
@@ -27,21 +27,23 @@ jobs:
         working-directory: API
         run: python manage.py test config
 
-      - name: Package API
-        run: zip -r api-deploy.zip API requirements.txt -x "*/__pycache__/*" "*.pyc"
+      - name: Package application
+        run: |
+          zip -r app-deploy.zip API FRONTEND requirements.txt \
+            -x "*/__pycache__/*" "*.pyc"
 
       - name: Sign in to Azure with GitHub OIDC
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_83D6214694CC4DF398CF84D58A678DA4 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_C452B3320F634F6E81AE9826FD803F27 }}
-          subscription-id: 798f04fe-022a-4515-a73b-9bcadad066e4
+          subscription-id: 74ff5e0f-dd2b-4345-b823-d934eb55878c
           allow-no-subscriptions: true
 
-      - name: Deploy API to Azure App Service
+      - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
         with:
-          app-name: PacieAPI
-          resource-group-name: PacienCareRG
-          package: api-deploy.zip
+          app-name: PaciAPI
+          resource-group-name: rg-paciencare
+          package: app-deploy.zip
           startup-command: gunicorn --chdir API config.wsgi:application --bind=0.0.0.0 --timeout 600
