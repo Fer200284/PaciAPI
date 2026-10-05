@@ -173,15 +173,12 @@ DATABASE_OPTIONS = {
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
-        'NAME': os.getenv('DB_NAME', 'BDTisma'),
-        'HOST': os.getenv('DB_HOST', '.'),
+        'NAME': os.getenv('DB_NAME', 'free-sql-db-3111999'),
+        'HOST': os.getenv('DB_HOST', 'sql-paci.database.windows.net'),
         'PORT': '1433',
-        'USER': '',
-        'PASSWORD': '',
         'OPTIONS': DATABASE_OPTIONS,
     },
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
