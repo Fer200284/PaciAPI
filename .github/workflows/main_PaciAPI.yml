@@ -1,6 +1,9 @@
 name: Deploy PaciAPI to Azure
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -29,15 +32,14 @@ jobs:
 
       - name: Package application
         run: |
-          zip -r app-deploy.zip API FRONTEND requirements.txt \
-            -x "*/__pycache__/*" "*.pyc"
+          zip -r app-deploy.zip API FRONTEND requirements.txt -x "*/__pycache__/*" "*.pyc"
 
       - name: Sign in to Azure with GitHub OIDC
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_83D6214694CC4DF398CF84D58A678DA4 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_C452B3320F634F6E81AE9826FD803F27 }}
-          subscription-id: 74ff5e0f-dd2b-4345-b823-d934eb55878c
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           allow-no-subscriptions: true
 
       - name: Deploy to Azure App Service
