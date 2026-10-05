@@ -161,7 +161,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 DATABASE_OPTIONS = {
-    'driver': os.getenv('DB_DRIVER', 'ODBC Driver 17 for SQL Server'),
+    'driver': os.getenv('DB_DRIVER', 'ODBC Driver 18 for SQL Server'),
     'extra_params': (
         os.getenv(
             'DB_EXTRA_PARAMS',
@@ -175,6 +175,7 @@ DATABASES = {
         'ENGINE': 'mssql',
         'NAME': os.getenv('DB_NAME', 'BDTisma'),
         'HOST': os.getenv('DB_HOST', '.'),
+        'PORT': '1433',
         'USER': '',
         'PASSWORD': '',
         'OPTIONS': DATABASE_OPTIONS,
