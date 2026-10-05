@@ -1,11 +1,12 @@
 // ==========================================
 // CONFIGURACIÓN GLOBAL Y ESTADO
 // ==========================================
-const APP_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : window.location.origin;
-const API_LOCAL = `${APP_BASE}/api`;
-const LOGIN_URL = window.location.protocol === 'file:' || window.location.port === '8000'
-    ? `${APP_BASE}/login/`
-    : `${APP_BASE}/login.html`;
+const API_BASE = 'https://paciapi-c8a0esfgbkcsf7b8.centralus-01.azurewebsites.net';
+const API_LOCAL = `${API_BASE}/api`;
+const LOGIN_URL =
+    window.location.protocol === 'file:' || window.location.port === '8000'
+        ? 'http://127.0.0.1:8000/login/'
+        : `${window.location.origin}/login.html`;
 
 let editandoId = {
     pacientes: null,

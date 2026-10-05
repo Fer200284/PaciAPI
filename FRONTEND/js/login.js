@@ -2,8 +2,7 @@ const loginForm = document.getElementById('loginForm');
 const errorMsg = document.getElementById('error-msg');
 const loginBtn = document.getElementById('loginBtn');
 
-const APP_BASE = window.location.protocol === 'file:' ? 'http://127.0.0.1:8000' : window.location.origin;
-const API_BASE = `${APP_BASE}/api`;
+const API_BASE = 'https://paciapi-c8a0esfgbkcsf7b8.centralus-01.azurewebsites.net/api';
 
 if (localStorage.getItem('accessToken')) {
     const volver = confirm('Ya tienes una sesión activa. ¿Deseas volver al dashboard?');
