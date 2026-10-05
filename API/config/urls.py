@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.http import JsonResponse
+from django.shortcuts import redirect
 from django.urls import include, path
 
 from drf_spectacular.views import (
@@ -13,7 +14,14 @@ def health_check(request):
     return JsonResponse({"status": "ok"})
 
 
+def swagger_redirect(request):
+    return redirect("/api/schema/swagger-ui/")
+
+
 urlpatterns = [
+    # Página principal → Swagger
+    path("", swagger_redirect, name="home"),
+
     # Estado de la API
     path("health/", health_check, name="health"),
 
