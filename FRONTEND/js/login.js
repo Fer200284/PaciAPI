@@ -4,6 +4,8 @@ const loginBtn = document.getElementById('loginBtn');
 
 const API_BASE = 'https://paciapi-c8a0esfgbkcsf7b8.centralus-01.azurewebsites.net/api';
 
+const APP_BASE = 'https://mango-flower-0776e7a10.3.azurestaticapps.net';
+
 if (localStorage.getItem('accessToken')) {
     const volver = confirm('Ya tienes una sesión activa. ¿Deseas volver al dashboard?');
     if (volver) {
