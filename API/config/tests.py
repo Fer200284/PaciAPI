@@ -1,18 +1,17 @@
 from django.test import SimpleTestCase
 
 
-class FrontendPagesTest(SimpleTestCase):
-    def test_health_endpoint_does_not_require_database(self):
-        response = self.client.get('/health/')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {'status': 'ok'})
+class APITest(SimpleTestCase):
 
-    def test_root_page_loads(self):
-        response = self.client.get('/')
+    def test_health_endpoint(self):
+        response = self.client.get("/health/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'PacienCare')
+        self.assertEqual(response.json(), {"status": "ok"})
 
-    def test_login_page_loads(self):
-        response = self.client.get('/login/')
+    def test_schema_endpoint(self):
+        response = self.client.get("/api/schema/")
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Iniciar Sesión')
+
+    def test_swagger_endpoint(self):
+        response = self.client.get("/api/schema/swagger-ui/")
+        self.assertEqual(response.status_code, 200)
