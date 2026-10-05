@@ -160,29 +160,26 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 
 
-DATABASE_USER = os.getenv('DB_USER', '')
-DATABASE_PASSWORD = os.getenv('DB_PASSWORD', '')
-if bool(DATABASE_USER) != bool(DATABASE_PASSWORD):
-    raise ImproperlyConfigured('DB_USER and DB_PASSWORD must both be configured.')
-
 DATABASE_OPTIONS = {
     'driver': os.getenv('DB_DRIVER', 'ODBC Driver 17 for SQL Server'),
-    'extra_params': os.getenv('DB_EXTRA_PARAMS', 'TrustServerCertificate=yes;'),
+    'extra_params': (
+        os.getenv(
+            'DB_EXTRA_PARAMS',
+            'Authentication=ActiveDirectoryMsi;TrustServerCertificate=yes;'
+        )
+    ),
 }
-if not DATABASE_USER:
-    DATABASE_OPTIONS['trusted_connection'] = 'yes'
 
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
         'NAME': os.getenv('DB_NAME', 'BDTisma'),
         'HOST': os.getenv('DB_HOST', '.'),
-        'USER': DATABASE_USER,
-        'PASSWORD': DATABASE_PASSWORD,
+        'USER': '',
+        'PASSWORD': '',
         'OPTIONS': DATABASE_OPTIONS,
     },
 }
-
 
 
 # Password validation
