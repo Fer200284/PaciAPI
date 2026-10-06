@@ -30,9 +30,20 @@ jobs:
         working-directory: API
         run: python manage.py test config
 
+      - name: Verify source before packaging
+        run: |
+          echo "=== models.py que se va a desplegar ==="
+          grep "ADMINISTRADOR" API/apps/Seguridad/Usuarios/models.py
+
       - name: Package application
         run: |
-          zip -r app-deploy.zip API FRONTEND requirements.txt -x "*/__pycache__/*" "*.pyc"
+          zip -r app-deploy.zip API FRONTEND requirements.txt \
+            -x "*/__pycache__/*" "*.pyc"
+
+      - name: Verify package
+        run: |
+          echo "=== models.py dentro del ZIP ==="
+          unzip -p app-deploy.zip API/apps/Seguridad/Usuarios/models.py | grep "ADMINISTRADOR"
 
       - name: Sign in to Azure with GitHub OIDC
         uses: azure/login@v2
