@@ -7,6 +7,7 @@ class User(AbstractUser):
     class Roles(models.TextChoices):
         PACIENTE = 'Paciente', 'Paciente'
         GERENCIA = 'Gerencia', 'Gerencia'
+        ADMINISTRADOR = 'Administrador', 'Administrador'
 
     rol = models.CharField(
         max_length=20,
