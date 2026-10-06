@@ -59,4 +59,5 @@ jobs:
           app-name: PaciAPI
           resource-group-name: rg-paciencare
           package: app-deploy.zip
+          clean: true
           startup-command: gunicorn --chdir API config.wsgi:application --bind=0.0.0.0 --timeout 600
