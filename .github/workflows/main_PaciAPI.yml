@@ -24,26 +24,48 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: python -m pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
       - name: Run API smoke tests
         working-directory: API
-        run: python manage.py test config
-
-      - name: Verify source before packaging
         run: |
-          echo "=== models.py que se va a desplegar ==="
-          grep "ADMINISTRADOR" API/apps/Seguridad/Usuarios/models.py
+          python manage.py test config
 
-      - name: Package application
+      - name: Verify source code
         run: |
-          zip -r app-deploy.zip API FRONTEND requirements.txt \
-            -x "*/__pycache__/*" "*.pyc"
+          echo "=== models.py del repositorio ==="
+          grep -n "ADMINISTRADOR" API/apps/Seguridad/Usuarios/models.py
 
-      - name: Verify package
+      - name: Prepare deployment package
+        run: |
+          rm -rf deploy
+          mkdir -p deploy
+
+          cp -r API deploy/
+          cp -r FRONTEND deploy/
+          cp requirements.txt deploy/
+
+          echo "=== Archivos preparados ==="
+          find deploy/API/apps/Seguridad/Usuarios -maxdepth 2 -type f | sort
+
+      - name: Verify deployment package
+        run: |
+          echo "=== models.py dentro del paquete ==="
+          grep -n "ADMINISTRADOR" deploy/API/apps/Seguridad/Usuarios/models.py
+
+      - name: Create deployment ZIP
+        run: |
+          cd deploy
+          zip -r ../app-deploy.zip . \
+            -x "*/__pycache__/*" \
+            -x "*.pyc"
+
+      - name: Verify ZIP
         run: |
           echo "=== models.py dentro del ZIP ==="
-          unzip -p app-deploy.zip API/apps/Seguridad/Usuarios/models.py | grep "ADMINISTRADOR"
+          unzip -p app-deploy.zip API/apps/Seguridad/Usuarios/models.py | grep -n "ADMINISTRADOR"
 
       - name: Sign in to Azure with GitHub OIDC
         uses: azure/login@v2
