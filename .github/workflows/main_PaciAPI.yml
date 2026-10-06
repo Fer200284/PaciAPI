@@ -35,37 +35,88 @@ jobs:
 
       - name: Verify source code
         run: |
-          echo "=== models.py del repositorio ==="
+          echo "=========================================="
+          echo " VERIFICANDO CODIGO DEL REPOSITORIO"
+          echo "=========================================="
+
+          echo "--- models.py ---"
           grep -n "ADMINISTRADOR" API/apps/Seguridad/Usuarios/models.py
+
+          echo "--- urls.py ---"
+          grep -n "WebTokenSerializer" API/apps/Seguridad/Usuarios/Api/urls.py
+          grep -n "web/token" API/apps/Seguridad/Usuarios/Api/urls.py
 
       - name: Prepare deployment package
         run: |
           rm -rf deploy
+          rm -f app-deploy.zip
+
           mkdir -p deploy
 
           cp -r API deploy/
           cp -r FRONTEND deploy/
           cp requirements.txt deploy/
 
-          echo "=== Archivos preparados ==="
+          echo "=========================================="
+          echo " ARCHIVOS PREPARADOS"
+          echo "=========================================="
+
           find deploy/API/apps/Seguridad/Usuarios -maxdepth 2 -type f | sort
 
       - name: Verify deployment package
         run: |
-          echo "=== models.py dentro del paquete ==="
-          grep -n "ADMINISTRADOR" deploy/API/apps/Seguridad/Usuarios/models.py
+          echo "=========================================="
+          echo " VERIFICANDO PAQUETE DE DESPLIEGUE"
+          echo "=========================================="
+
+          echo "--- models.py dentro del paquete ---"
+          grep -n "ADMINISTRADOR" \
+            deploy/API/apps/Seguridad/Usuarios/models.py
+
+          echo "--- WebTokenSerializer dentro del paquete ---"
+          grep -n "WebTokenSerializer" \
+            deploy/API/apps/Seguridad/Usuarios/Api/urls.py
+
+          echo "--- web/token dentro del paquete ---"
+          grep -n "web/token" \
+            deploy/API/apps/Seguridad/Usuarios/Api/urls.py
 
       - name: Create deployment ZIP
         run: |
           cd deploy
+
           zip -r ../app-deploy.zip . \
             -x "*/__pycache__/*" \
             -x "*.pyc"
 
+          cd ..
+
+          echo "=========================================="
+          echo " ZIP CREADO"
+          echo "=========================================="
+
+          ls -lh app-deploy.zip
+
       - name: Verify ZIP
         run: |
-          echo "=== models.py dentro del ZIP ==="
-          unzip -p app-deploy.zip API/apps/Seguridad/Usuarios/models.py | grep -n "ADMINISTRADOR"
+          echo "=========================================="
+          echo " VERIFICANDO CONTENIDO DEL ZIP"
+          echo "=========================================="
+
+          echo "--- models.py dentro del ZIP ---"
+          unzip -p app-deploy.zip \
+            API/apps/Seguridad/Usuarios/models.py \
+            | grep -n "ADMINISTRADOR"
+
+          echo "--- WebTokenSerializer dentro del ZIP ---"
+          unzip -p app-deploy.zip \
+            API/apps/Seguridad/Usuarios/Api/urls.py \
+            | grep -n "WebTokenSerializer"
+
+          echo "--- web/token dentro del ZIP ---"
+          unzip -p app-deploy.zip \
+            API/apps/Seguridad/Usuarios/Api/urls.py \
+            | grep -n "web/token"
 
       - name: Sign in to Azure with GitHub OIDC
         uses: azure/login@v2
