@@ -38,7 +38,7 @@ loginForm.addEventListener('submit', async function (e) {
     errorMsg.style.display = 'none';
 
     try {
-        const response = await fetch(`${API_BASE}/token/`, {
+        const response = await fetch(`${API_BASE}/web/token/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
