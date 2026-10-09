@@ -57,11 +57,12 @@ jobs:
           cp -r FRONTEND deploy/
           cp requirements.txt deploy/
 
-          echo "=========================================="
-          echo " ARCHIVOS PREPARADOS"
-          echo "=========================================="
+          echo "=== Rutas reales de Pacientes ==="
+          find deploy/API/apps -type d -name "Pacientes" -print
+          find deploy/API/apps -path "*/Pacientes/migrations/*" -type f -print
 
-          find deploy/API/apps/Seguridad/Usuarios -maxdepth 2 -type f | sort
+          echo "=== Modelo de Pacientes ==="
+          find deploy/API/apps -path "*/Pacientes/models.py" -exec grep -n "usuario" {} \;
 
       - name: Verify deployment package
         run: |
