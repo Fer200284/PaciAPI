@@ -124,6 +124,12 @@ jobs:
             API/apps/Seguridad/Usuarios/Api/urls.py \
             | grep -n "web/token"
 
+          echo "--- Modelo Pacientes dentro del ZIP ---"
+          unzip -p app-deploy.zip API/apps/catalogos/Pacientes/models.py | grep -n "usuario"
+
+          echo "--- Migración Pacientes dentro del ZIP ---"
+          unzip -l app-deploy.zip | grep "Pacientes/migrations"
+
       - name: Sign in to Azure with GitHub OIDC
         uses: azure/login@v2
         with:
