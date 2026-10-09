@@ -1,70 +1,82 @@
 from django.core.validators import RegexValidator
 from django.db import models
+from django.conf import settings
 
 
 class Pacientes(models.Model):
-  # Validador para el celular: exactamente 8 dígitos numéricos
-  validador_celular = RegexValidator(
-      regex=r"^\d{8}$", message="El celular debe contener exactamente 8 dígitos."
-  )
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="paciente",
+        db_column="UsuarioId",
+    )
 
-  # Validador para la cédula nicaragüense: 13 números seguidos de una letra mayúscula
-  validador_cedula = RegexValidator(
-      regex=r"^\d{13}[A-Z]$",
-      message=(
-          "La cédula debe tener 13 dígitos numéricos seguidos de una letra"
-          " mayúscula (Ej. 0010101000000A)."
-      ),
-  )
+    # Validador para el celular: exactamente 8 dígitos numéricos
+    validador_celular = RegexValidator(
+        regex=r"^\d{8}$",
+        message="El celular debe contener exactamente 8 dígitos.",
+    )
 
-  # Llave foránea hacia el catálogo Sector (opcional u obligatoria según tu SQL)
-  id_sector = models.ForeignKey(
-      "Sector.Sector",
-      on_delete=models.PROTECT,
-      db_column="IdSector",
-      blank=True,
-      null=True,
-  )
+    # Validador para la cédula nicaragüense: 13 números seguidos de una letra mayúscula
+    validador_cedula = RegexValidator(
+        regex=r"^\d{13}[A-Z]$",
+        message=(
+            "La cédula debe tener 13 dígitos numéricos seguidos de una letra"
+            " mayúscula (Ej. 0010101000000A)."
+        ),
+    )
 
-  nombre = models.CharField(max_length=150, db_column="Nombre")
-  apellidos = models.CharField(max_length=150, db_column="Apellidos")
+    # Llave foránea hacia el catálogo Sector (opcional u obligatoria según tu SQL)
+    id_sector = models.ForeignKey(
+        "Sector.Sector",
+        on_delete=models.PROTECT,
+        db_column="IdSector",
+        blank=True,
+        null=True,
+    )
 
-  sexo = models.CharField(
-      max_length=1,
-      choices=[("M", "Masculino"), ("F", "Femenino")],
-      db_column="sexo",  # Equivalente al CHECK de sexo IN ('M', 'F')
-  )
+    nombre = models.CharField(max_length=150, db_column="Nombre")
+    apellidos = models.CharField(max_length=150, db_column="Apellidos")
 
-  fecha_de_nacimiento = models.DateField(
-      db_column="Fecha_de_Nacimiento"  # Validación de fecha menor o igual a hoy se maneja mejor en formularios/clean
-  )
+    sexo = models.CharField(
+        max_length=1,
+        choices=[("M", "Masculino"), ("F", "Femenino")],
+        db_column="sexo",  # Equivalente al CHECK de sexo IN ('M', 'F')
+    )
 
-  celular = models.CharField(
-      max_length=8,
-      validators=[validador_celular],
-      db_column="celular",
-  )
+    fecha_de_nacimiento = models.DateField(
+        db_column="Fecha_de_Nacimiento"  # Validación de fecha menor o igual a hoy se maneja mejor en formularios/clean
+    )
 
-  cedula = models.CharField(
-      max_length=14,
-      unique=True,
-      validators=[validador_cedula],
-      db_column="Cedula",
-  )
+    celular = models.CharField(
+        max_length=8,
+        validators=[validador_celular],
+        db_column="celular",
+    )
 
-  direccion = models.CharField(max_length=400, db_column="Direccion")
-  barrio = models.CharField(max_length=150, db_column="Barrio")
+    cedula = models.CharField(
+        max_length=14,
+        unique=True,
+        validators=[validador_cedula],
+        db_column="Cedula",
+    )
 
-  fecha_creacion = models.DateTimeField(
-      auto_now_add=True, db_column="FechaCreacion"
-  )
+    direccion = models.CharField(max_length=400, db_column="Direccion")
+    barrio = models.CharField(max_length=150, db_column="Barrio")
 
-  estado = models.BooleanField(default=True, db_column="Estado")
+    fecha_creacion = models.DateTimeField(
+        auto_now_add=True, db_column="FechaCreacion"
+    )
 
-  class Meta:
-    db_table = "Pacientes"
-    verbose_name = "Paciente"
-    verbose_name_plural = "Pacientes"
+    estado = models.BooleanField(default=True, db_column="Estado")
 
-  def __str__(self):
-    return f"{self.nombre} {self.apellidos} - Cédula: {self.cedula}"
+    class Meta:
+        db_table = "Pacientes"
+        verbose_name = "Paciente"
+        verbose_name_plural = "Pacientes"
+
+    def __str__(self):
+        return f"{self.nombre} {self.apellidos} - Cédula: {self.cedula}"
+
