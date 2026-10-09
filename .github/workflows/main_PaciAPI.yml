@@ -81,6 +81,12 @@ jobs:
           grep -n "web/token" \
             deploy/API/apps/Seguridad/Usuarios/Api/urls.py
 
+          echo "--- Migraciones de Pacientes en el paquete ---"
+          find deploy/API/apps/catalogos/Pacientes/migrations -maxdepth 1 -type f | sort
+
+          echo "--- Campo usuario en el modelo del paquete ---"
+          grep -n "usuario" deploy/API/apps/catalogos/Pacientes/models.py
+
       - name: Create deployment ZIP
         run: |
           cd deploy
