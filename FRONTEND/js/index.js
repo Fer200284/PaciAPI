@@ -1347,9 +1347,9 @@ async function cargarDetalleTratamiento() {
         detalles.forEach((item, index) => {
             const tratamiento = tratamientos.get(String(item.id_tratamiento));
             const medicamento = medicamentos.get(String(item.id_medicamento));
-            const etiquetaTratamiento = tratamiento
-                ? `Tratamiento #${tratamiento.id}`
-                : `Tratamiento #${item.id_tratamiento}`;
+            const etiquetaTratamiento = crearEtiquetaTratamientoDetalle(
+                tratamiento || { id: item.id_tratamiento }
+            );
             const fila = document.createElement('tr');
             fila.innerHTML = `
                 <td>${index + 1}</td>
@@ -1402,12 +1402,19 @@ async function llenarSelectTratamientos(fecha = null) {
     tratamientosDelDia.forEach(item => {
         const option = document.createElement('option');
         option.value = item.id;
-        option.textContent = `Tratamiento #${item.id}`;
+        option.textContent = crearEtiquetaTratamientoDetalle(item);
         select.appendChild(option);
     });
     if (!tratamientosDelDia.length) {
         select.innerHTML = '<option value="">-- No hay tratamientos para este día --</option>';
     }
+}
+
+function crearEtiquetaTratamientoDetalle(tratamiento) {
+    const descripcion = String(tratamiento.observaciones || '').trim();
+    return descripcion
+        ? `Tratamiento #${tratamiento.id} - ${descripcion}`
+        : `Tratamiento #${tratamiento.id}`;
 }
 
 async function llenarSelectMedicamentosDetalle() {
