@@ -1969,17 +1969,50 @@ async function abrirModalResultadosExamenes(modo, id = null) {
     error.textContent = '';
     document.getElementById('resultado').value = '';
     document.getElementById('nombre_examen').value = '';
+    const fechaInput = document.getElementById('fechaResultadoExamen');
+    fechaInput.value = fechaLocalISO();
+    if (!fechaInput.dataset.configurado) {
+        fechaInput.dataset.configurado = 'true';
+        fechaInput.addEventListener('change', async () => {
+            try {
+                await llenarSelectSolicitudesExamenes(
+                    'nomResultadosExamenes',
+                    fechaInput.value
+                );
+            } catch (loadError) {
+                error.textContent = 'No se pudieron cargar las solicitudes de esa fecha.';
+                console.error('No se pudieron cargar las solicitudes de esa fecha:', loadError);
+            }
+        });
+    }
     try {
-        await llenarSelectSolicitudesExamenes('nomResultadosExamenes');
+        const contexto = await cargarContextoSolicitudesResultados();
+        window.contextoSolicitudesResultados = contexto;
         if (id) {
             const item = await fetchJsonOrThrow(
                 `${API_LOCAL}/resultados-examenes/${id}/`,
                 { headers: getAuthHeaders() }
             );
-            document.getElementById('nomResultadosExamenes').value =
-                obtenerIdRelacionado(item.id_solicitud_examen);
+            const solicitudId = obtenerIdRelacionado(item.id_solicitud_examen);
+            const solicitud = contexto.solicitudesPorId.get(String(solicitudId));
+            const atencionId = obtenerIdRelacionado(solicitud?.id_atencion_cronico);
+            const atencion = contexto.atenciones.find(registro =>
+                String(registro.id) === String(atencionId));
+            if (atencion) fechaInput.value = fechaAtencionISO(atencion.fecha_atencion);
             document.getElementById('resultado').value = item.valor_resultado || '';
             document.getElementById('nombre_examen').value = item.interpretacion || '';
+            await llenarSelectSolicitudesExamenes(
+                'nomResultadosExamenes',
+                fechaInput.value,
+                contexto
+            );
+            document.getElementById('nomResultadosExamenes').value = solicitudId;
+        } else {
+            await llenarSelectSolicitudesExamenes(
+                'nomResultadosExamenes',
+                fechaInput.value,
+                contexto
+            );
         }
         document.getElementById('modalRETitulo').textContent =
             id ? 'Editar resultado de examen' : 'Nuevo resultado de examen';
@@ -2394,18 +2427,31 @@ async function llenarSelectCategoriasMedicamentos(idSelect) {
     }
 }
 
-async function llenarSelectSolicitudesExamenes(idSelect) {
-    const contexto = await cargarContextoSolicitudesResultados();
+async function llenarSelectSolicitudesExamenes(idSelect, fecha = null, contexto = null) {
+    contexto = contexto || window.contextoSolicitudesResultados ||
+        await cargarContextoSolicitudesResultados();
+    window.contextoSolicitudesResultados = contexto;
     const select = document.getElementById(idSelect);
     if (!select) return;
 
     select.innerHTML = '<option value="">-- Seleccione examen y paciente --</option>';
-    contexto.solicitudes.forEach(item => {
+    const fechaElegida = fecha || document.getElementById('fechaResultadoExamen')?.value ||
+        fechaLocalISO();
+    const solicitudesDelDia = contexto.solicitudes.filter(item => {
+        const atencionId = obtenerIdRelacionado(item.id_atencion_cronico);
+        const atencion = contexto.atenciones.find(registro =>
+            String(registro.id) === String(atencionId));
+        return fechaAtencionISO(atencion?.fecha_atencion) === fechaElegida;
+    });
+    solicitudesDelDia.forEach(item => {
         const option = document.createElement('option');
         option.value = item.id;
         option.textContent = crearEtiquetaSolicitudResultado(item, contexto);
         select.appendChild(option);
     });
+    if (!solicitudesDelDia.length) {
+        select.innerHTML = '<option value="">-- No hay solicitudes para este día --</option>';
+    }
 }
 
 function configurarBuscadores() {
