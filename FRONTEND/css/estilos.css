@@ -700,11 +700,6 @@ body.formulario-bloqueado {
     width: 14%;
 }
 
-#tablaUsuarios td:last-child {
-    min-width: 330px;
-    width: 330px;
-}
-
 .tabla-scroll-solicitudes {
     min-height: 0;
 }
@@ -833,14 +828,14 @@ body.formulario-bloqueado {
 #tablaSolicitudesExamenes td:last-child,
 #tablaUsuarios td:last-child {
     white-space: nowrap;
-    min-width: 330px;
-    width: 330px;
+    min-width: max-content;
+    width: max-content;
     text-align: center;
 }
 
 #tablaUsuarios td:last-child {
-    min-width: 360px;
-    width: 360px;
+    min-width: max-content;
+    width: max-content;
 }
 
 #tablaPacientesPatologias {
@@ -850,9 +845,9 @@ body.formulario-bloqueado {
 
 #tablaPacientesPatologias th:last-child,
 #tablaPacientesPatologias td:last-child {
-    width: 330px !important;
-    min-width: 330px !important;
-    max-width: 330px !important;
+    width: max-content !important;
+    min-width: max-content !important;
+    max-width: max-content !important;
     white-space: nowrap !important;
     text-align: center !important;
     overflow: visible !important;
@@ -886,16 +881,16 @@ body.formulario-bloqueado {
 
 #tablaUsuarios th:last-child,
 #tablaUsuarios td:last-child {
-    width: 330px;
-    min-width: 330px;
+    width: max-content;
+    min-width: max-content;
     text-align: center;
     white-space: nowrap;
 }
 
 #tablaPatologiasCronicas th:last-child,
 #tablaPatologiasCronicas td:last-child {
-    width: 320px;
-    min-width: 320px;
+    width: max-content;
+    min-width: max-content;
     white-space: nowrap;
 }
 
