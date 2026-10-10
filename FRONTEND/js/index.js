@@ -1458,17 +1458,15 @@ async function cargarContextoPacienteAtenciones() {
 
 async function cargarContextoSolicitudesResultados() {
     const headers = { headers: getAuthHeaders() };
-    const [solicitudes, examenes, contexto, tratamientos] = await Promise.all([
+    const [solicitudes, examenes, contexto] = await Promise.all([
         fetchJsonOrThrow(`${API_LOCAL}/solicitud-de-examenes/`, headers),
         fetchJsonOrThrow(`${API_LOCAL}/examenes-de-laboratorio/`, headers),
-        cargarContextoPacienteAtenciones(),
-        fetchJsonOrThrow(`${API_LOCAL}/tratamiento/`, headers)
+        cargarContextoPacienteAtenciones()
     ]);
     return {
         ...contexto,
         solicitudes: safeArray(solicitudes),
         examenesPorId: new Map(safeArray(examenes).map(item => [String(item.id), item])),
-        tratamientos: safeArray(tratamientos),
         solicitudesPorId: new Map(safeArray(solicitudes).map(item => [String(item.id), item]))
     };
 }
@@ -1491,16 +1489,14 @@ function crearEtiquetaSolicitudResultado(solicitud, contexto) {
     const examen = contexto.examenesPorId.get(String(examenId));
     const atencionId = obtenerIdRelacionado(solicitud.id_atencion_cronico);
     const atencion = contexto.atenciones.find(item => String(item.id) === String(atencionId));
-    const partes = [examen?.nombre_examen || 'Examen sin nombre'];
-    if (atencion) {
-        partes.push(crearEtiquetaAtencionPaciente(atencion, contexto));
-        const tratamientos = contexto.tratamientos.filter(item =>
-            String(obtenerIdRelacionado(item.id_atencion_cronico)) === String(atencion.id));
-        tratamientos.forEach(tratamiento => partes.push(`Tratamiento #${tratamiento.id}`));
-    } else {
-        partes.push(`Atención ${atencionId || 'sin asignar'} - Paciente sin ficha`);
-    }
-    return partes.join(' · ');
+    const relacionId = obtenerIdRelacionado(atencion?.id_paciente_patologia);
+    const relacion = contexto.pacientesPatologiasPorId.get(String(relacionId));
+    const pacienteId = obtenerIdRelacionado(relacion?.id_paciente);
+    const paciente = contexto.pacientesPorId.get(String(pacienteId));
+    const primerNombre = String(paciente?.nombre || '').trim().split(/\s+/)[0] || '';
+    const primerApellido = String(paciente?.apellidos || '').trim().split(/\s+/)[0] || '';
+    const nombrePaciente = `${primerNombre} ${primerApellido}`.trim() || 'Paciente sin ficha';
+    return `${examen?.nombre_examen || `Examen #${examenId || 'sin asignar'}`} - ${nombrePaciente}`;
 }
 
 async function llenarSelectAtencionesTratamiento(fecha = null) {
@@ -2392,7 +2388,7 @@ async function llenarSelectSolicitudesExamenes(idSelect) {
     const select = document.getElementById(idSelect);
     if (!select) return;
 
-    select.innerHTML = '<option value="">-- Seleccione examen, atención y paciente --</option>';
+    select.innerHTML = '<option value="">-- Seleccione examen y paciente --</option>';
     contexto.solicitudes.forEach(item => {
         const option = document.createElement('option');
         option.value = item.id;
