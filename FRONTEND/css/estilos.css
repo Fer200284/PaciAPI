@@ -365,40 +365,37 @@ body.formulario-bloqueado {
 }
 
 .tabla-scroll {
+    width: 100%;
+    min-width: 0;
     overflow-x: auto;
-    overflow-y: auto;
-    max-height: 75vh;
-    height: 75vh;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    overflow-y: hidden;
+    max-height: none;
+    height: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #7892ad #e7edf5;
+    -ms-overflow-style: auto;
 }
 
 .tabla-scroll::-webkit-scrollbar {
     width: 0;
-    height: 0;
+    height: 9px;
 }
 
 .tabla-scroll::-webkit-scrollbar-thumb {
-    background: transparent;
+    background: #7892ad;
     border-radius: 999px;
 }
 
 .tabla-scroll::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.tabla-scroll-sectores,
-.tabla-scroll-general {
-    max-height: 75vh;
-    height: 75vh;
+    background: #e7edf5;
 }
 
 .tabla-scroll-pacientes-patologias,
 .tabla-scroll-patologias-cronicas {
     width: 100%;
     overflow-x: auto;
-    overflow-y: auto;
-    max-height: 510px;
+    overflow-y: hidden;
+    max-height: none;
 }
 
 .tabla-scroll-pacientes-patologias > #tablaPacientesPatologias,
@@ -488,6 +485,8 @@ body.formulario-bloqueado {
 
 .tabla-scroll > .tabla {
     display: table;
+    width: max-content;
+    min-width: 100%;
     overflow: visible;
 }
 
@@ -500,14 +499,12 @@ body.formulario-bloqueado {
 
 .tabla-contenedor > .tabla-scroll {
     overflow-x: auto;
-    overflow-y: auto;
-    max-height: 75vh;
-    height: 75vh;
+    overflow-y: hidden;
+    max-height: none;
+    height: auto;
 }
 
 .tabla-contenedor > .tabla-scroll.tabla-scroll-sectores {
-    height: 75vh;
-    max-height: 75vh;
     padding-bottom: 8px;
 }
 
@@ -1732,10 +1729,6 @@ body.formulario-bloqueado {
     padding-bottom: 6px;
 }
 
-.tabla-contenedor > .tabla-scroll.tabla-scroll-sectores {
-    height: 512px;
-    max-height: 512px;
-}
     .form-grid-paciente {
         grid-template-columns: 1fr;
     }
