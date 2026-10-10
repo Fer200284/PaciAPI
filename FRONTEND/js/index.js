@@ -1028,9 +1028,24 @@ async function guardarPacientes() {
             cargarPacientes();
             cargarDashboard();
         } else {
-            const errText = await res.text();
-            errorEl.textContent = 'Error al guardar.';
-            console.error(errText);
+            const cuerpoRespuesta = await res.text();
+            let errores;
+            try {
+                errores = JSON.parse(cuerpoRespuesta);
+            } catch {
+                console.error(cuerpoRespuesta);
+                errorEl.textContent = 'Error al guardar.';
+                return;
+            }
+            const erroresCedula = errores.cedula;
+            if (Array.isArray(erroresCedula)) {
+                errorEl.textContent = erroresCedula.join(' ');
+            } else {
+                errorEl.textContent = Object.values(errores)
+                    .flat()
+                    .join(' ') || 'Error al guardar.';
+            }
+            console.error(errores);
         }
     } catch (error) {
         errorEl.textContent = 'Error de conexión.';
@@ -1307,11 +1322,13 @@ async function cargarTratamientos() {
                 <td>${index + 1}</td>
                 <td>${crearEtiquetaTratamientoDetalle(item, contexto)}</td>
                 <td>${formatDate(item.fecha_tratamiento)}</td>
+                <td></td>
                 <td>
                     <button class="btn btn-sm btn-secundario" onclick="editarTratamiento(${item.id})">✏️ Editar</button>
                     <button class="btn btn-sm btn-peligro" onclick="eliminarTratamiento(${item.id})">🗑️ Eliminar</button>
                 </td>
             `;
+            fila.cells[3].textContent = item.observaciones || '-';
             tbody.appendChild(fila);
         });
     } catch (error) {
