@@ -1294,24 +1294,18 @@ async function cargarTratamientos() {
     if (cargando) cargando.style.display = 'block';
     if (tbody) tbody.innerHTML = '';
     try {
-        const [tratamientosRespuesta, contextoRespuesta] = await Promise.all([
-            fetch(`${API_LOCAL}/tratamiento/`, { headers: getAuthHeaders() }),
-            cargarContextoPacienteAtenciones()
-        ]);
+        const tratamientosRespuesta = await fetch(`${API_LOCAL}/tratamiento/`, {
+            headers: getAuthHeaders()
+        });
+        if (!tratamientosRespuesta.ok) throw new Error('No se pudieron cargar los tratamientos.');
         const tratamientos = safeArray(await tratamientosRespuesta.json());
-        const atenciones = Object.fromEntries(contextoRespuesta.atenciones.map(item => [item.id, item]));
         if (cargando) cargando.style.display = 'none';
         tratamientos.forEach((item, index) => {
-            const atencion = atenciones[item.id_atencion_cronico];
-            const referenciaAtencion = atencion
-                ? crearEtiquetaAtencionPaciente(atencion, contextoRespuesta)
-                : `Atención #${item.id_atencion_cronico || 'Sin asignar'}`;
             const fila = document.createElement('tr');
             fila.innerHTML = `
                 <td>${index + 1}</td>
-                <td>${referenciaAtencion}</td>
+                <td>${crearEtiquetaTratamientoDetalle(item)}</td>
                 <td>${formatDate(item.fecha_tratamiento)}</td>
-                <td>${item.observaciones || ''}</td>
                 <td>
                     <button class="btn btn-sm btn-secundario" onclick="editarTratamiento(${item.id})">✏️ Editar</button>
                     <button class="btn btn-sm btn-peligro" onclick="eliminarTratamiento(${item.id})">🗑️ Eliminar</button>
