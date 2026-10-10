@@ -1294,9 +1294,10 @@ async function cargarTratamientos() {
     if (cargando) cargando.style.display = 'block';
     if (tbody) tbody.innerHTML = '';
     try {
-        const tratamientosRespuesta = await fetch(`${API_LOCAL}/tratamiento/`, {
-            headers: getAuthHeaders()
-        });
+        const [tratamientosRespuesta, contexto] = await Promise.all([
+            fetch(`${API_LOCAL}/tratamiento/`, { headers: getAuthHeaders() }),
+            cargarContextoPacienteAtenciones()
+        ]);
         if (!tratamientosRespuesta.ok) throw new Error('No se pudieron cargar los tratamientos.');
         const tratamientos = safeArray(await tratamientosRespuesta.json());
         if (cargando) cargando.style.display = 'none';
@@ -1304,7 +1305,7 @@ async function cargarTratamientos() {
             const fila = document.createElement('tr');
             fila.innerHTML = `
                 <td>${index + 1}</td>
-                <td>${crearEtiquetaTratamientoDetalle(item)}</td>
+                <td>${crearEtiquetaTratamientoDetalle(item, contexto)}</td>
                 <td>${formatDate(item.fecha_tratamiento)}</td>
                 <td>
                     <button class="btn btn-sm btn-secundario" onclick="editarTratamiento(${item.id})">✏️ Editar</button>
@@ -1325,10 +1326,11 @@ async function cargarDetalleTratamiento() {
     if (cargando) cargando.style.display = 'block';
     if (tbody) tbody.innerHTML = '';
     try {
-        const [detallesRespuesta, tratamientosRespuesta, medicamentosRespuesta] = await Promise.all([
+        const [detallesRespuesta, tratamientosRespuesta, medicamentosRespuesta, contexto] = await Promise.all([
             fetch(`${API_LOCAL}/detalle-tratamiento/`, { headers: getAuthHeaders() }),
             fetch(`${API_LOCAL}/tratamiento/`, { headers: getAuthHeaders() }),
-            fetch(`${API_LOCAL}/medicamentos/`, { headers: getAuthHeaders() })
+            fetch(`${API_LOCAL}/medicamentos/`, { headers: getAuthHeaders() }),
+            cargarContextoPacienteAtenciones()
         ]);
         if (!detallesRespuesta.ok || !tratamientosRespuesta.ok || !medicamentosRespuesta.ok) {
             throw new Error('No se pudieron cargar los detalles relacionados del tratamiento.');
@@ -1342,7 +1344,8 @@ async function cargarDetalleTratamiento() {
             const tratamiento = tratamientos.get(String(item.id_tratamiento));
             const medicamento = medicamentos.get(String(item.id_medicamento));
             const etiquetaTratamiento = crearEtiquetaTratamientoDetalle(
-                tratamiento || { id: item.id_tratamiento }
+                tratamiento || { id: item.id_tratamiento },
+                contexto
             );
             const fila = document.createElement('tr');
             fila.innerHTML = `
@@ -1375,6 +1378,7 @@ async function llenarSelectTratamientos(fecha = null) {
         if (!tratamientosRespuesta.ok) throw new Error('No se pudieron cargar los tratamientos.');
         window.tratamientosDetalle = safeArray(await tratamientosRespuesta.json());
         window.atencionesDetalleTratamiento = contexto.atenciones;
+        window.contextoDetalleTratamiento = contexto;
     }
     const fechaInput = document.getElementById('fechaDetalleTratamiento');
     const select = document.getElementById('tratamientoDetalle');
@@ -1396,7 +1400,7 @@ async function llenarSelectTratamientos(fecha = null) {
     tratamientosDelDia.forEach(item => {
         const option = document.createElement('option');
         option.value = item.id;
-        option.textContent = crearEtiquetaTratamientoDetalle(item);
+        option.textContent = crearEtiquetaTratamientoDetalle(item, window.contextoDetalleTratamiento);
         select.appendChild(option);
     });
     if (!tratamientosDelDia.length) {
@@ -1404,10 +1408,18 @@ async function llenarSelectTratamientos(fecha = null) {
     }
 }
 
-function crearEtiquetaTratamientoDetalle(tratamiento) {
-    const descripcion = String(tratamiento.observaciones || '').trim();
-    return descripcion
-        ? `Tratamiento #${tratamiento.id} - ${descripcion}`
+function crearEtiquetaTratamientoDetalle(tratamiento, contexto) {
+    const atencionId = obtenerIdRelacionado(tratamiento.id_atencion_cronico);
+    const atencion = contexto?.atenciones.find(item => String(item.id) === String(atencionId));
+    const relacionId = obtenerIdRelacionado(atencion?.id_paciente_patologia);
+    const relacion = contexto?.pacientesPatologiasPorId.get(String(relacionId));
+    const pacienteId = obtenerIdRelacionado(relacion?.id_paciente);
+    const paciente = contexto?.pacientesPorId.get(String(pacienteId));
+    const primerNombre = String(paciente?.nombre || '').trim().split(/\s+/)[0] || '';
+    const primerApellido = String(paciente?.apellidos || '').trim().split(/\s+/)[0] || '';
+    const nombrePaciente = `${primerNombre} ${primerApellido}`.trim();
+    return nombrePaciente
+        ? `Tratamiento #${tratamiento.id} - ${nombrePaciente}`
         : `Tratamiento #${tratamiento.id}`;
 }
 
