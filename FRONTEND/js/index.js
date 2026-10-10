@@ -2805,25 +2805,112 @@ async function editarResultado(id) {
 }
 
 async function abrirModalSolicitudExamen() {
-    const [examenesRespuesta, atencionesRespuesta] = await Promise.all([
-        fetch(`${API_LOCAL}/examenes-de-laboratorio/`, { headers: getAuthHeaders() }),
-        fetch(`${API_LOCAL}/atencion-cronico/`, { headers: getAuthHeaders() })
-    ]);
-    const examenes = safeArray(await examenesRespuesta.json());
-    window.atencionesSolicitudExamen = safeArray(await atencionesRespuesta.json());
-    const examenSelect = document.getElementById('examenSolicitud');
-    examenSelect.innerHTML = '<option value="">-- Seleccione examen de laboratorio --</option>';
-    examenes.forEach(item => {
-        examenSelect.innerHTML += `<option value="${item.id}">${item.nombre_examen} (${item.unidad_medida || 'sin unidad'})</option>`;
-    });
-    const fechaInput = document.getElementById('fechaSolicitudExamen');
-    if (!fechaInput.dataset.configurado) {
-        fechaInput.dataset.configurado = 'true';
-        fechaInput.addEventListener('change', () => cargarAtencionesSolicitudPorFecha(fechaInput.value));
+    const error = document.getElementById('solicitudExamenError');
+    error.textContent = '';
+    try {
+        const headers = { headers: getAuthHeaders() };
+        const [
+            examenes,
+            atenciones,
+            pacientes,
+            pacientesPatologias,
+            patologias,
+            tratamientos,
+            detallesTratamiento,
+            medicamentos
+        ] = await Promise.all([
+            fetchJsonOrThrow(`${API_LOCAL}/examenes-de-laboratorio/`, headers),
+            fetchJsonOrThrow(`${API_LOCAL}/atencion-cronico/`, headers),
+            fetchJsonOrThrow(`${API_LOCAL}/pacientes/`, headers),
+            fetchJsonOrThrow(`${API_LOCAL}/paciente-patologia/`, headers),
+            fetchJsonOrThrow(`${API_LOCAL}/patologias-cronicas/`, headers),
+            fetchJsonOrThrow(`${API_LOCAL}/tratamiento/`, headers),
+            fetchJsonOrThrow(`${API_LOCAL}/detalle-tratamiento/`, headers),
+            fetchJsonOrThrow(`${API_LOCAL}/medicamentos/`, headers)
+        ]);
+        window.atencionesSolicitudExamen = safeArray(atenciones);
+        window.contextoSolicitudExamen = {
+            pacientesPorId: new Map(safeArray(pacientes).map(item => [String(item.id), item])),
+            pacientesPatologiasPorId: new Map(safeArray(pacientesPatologias).map(item => [String(item.id), item])),
+            patologiasPorId: new Map(safeArray(patologias).map(item => [String(item.id), item])),
+            tratamientos: safeArray(tratamientos),
+            detallesTratamiento: safeArray(detallesTratamiento),
+            medicamentosPorId: new Map(safeArray(medicamentos).map(item => [String(item.id), item]))
+        };
+
+        const examenSelect = document.getElementById('examenSolicitud');
+        examenSelect.innerHTML = '<option value="">-- Seleccione examen de laboratorio --</option>';
+        safeArray(examenes).forEach(item => {
+            examenSelect.innerHTML += `<option value="${item.id}">${item.nombre_examen} (${item.unidad_medida || 'sin unidad'})</option>`;
+        });
+        const fechaInput = document.getElementById('fechaSolicitudExamen');
+        if (!fechaInput.dataset.configurado) {
+            fechaInput.dataset.configurado = 'true';
+            fechaInput.addEventListener('change', () => cargarAtencionesSolicitudPorFecha(fechaInput.value));
+        }
+        await cargarAtencionesSolicitudPorFecha();
+        document.getElementById('indicacionesSolicitud').value = '';
+        abrirModal('modalSolicitudExamen');
+    } catch (loadError) {
+        console.error('No se pudo cargar la información de la solicitud de examen:', loadError);
+        error.textContent = 'No se pudo cargar la información de pacientes y atenciones. Intente de nuevo.';
+        document.getElementById('examenSolicitud').value = '';
+        document.getElementById('atencionSolicitud').innerHTML =
+            '<option value="">No se pudieron cargar las atenciones</option>';
+        abrirModal('modalSolicitudExamen');
     }
-    await cargarAtencionesSolicitudPorFecha();
-    document.getElementById('indicacionesSolicitud').value = '';
-    abrirModal('modalSolicitudExamen');
+}
+
+function obtenerIdRelacionado(valor) {
+    return valor && typeof valor === 'object' ? valor.id : valor;
+}
+
+function crearEtiquetaAtencionSolicitud(item) {
+    const contexto = window.contextoSolicitudExamen;
+    const relacionId = String(obtenerIdRelacionado(item.id_paciente_patologia) || '');
+    const relacion = contexto.pacientesPatologiasPorId.get(relacionId);
+    const pacienteId = String(obtenerIdRelacionado(relacion?.id_paciente) || '');
+    const paciente = contexto.pacientesPorId.get(pacienteId);
+    const patologiaId = String(obtenerIdRelacionado(relacion?.id_patologia_cronica) || '');
+    const patologia = contexto.patologiasPorId.get(patologiaId);
+    const pacienteNombre = paciente
+        ? `${paciente.nombre || ''} ${paciente.apellidos || ''}`.trim()
+        : `Paciente sin ficha (atención #${item.id})`;
+    const partes = [pacienteNombre];
+
+    if (patologia?.nombre_patologia) {
+        partes.push(`Patología: ${patologia.nombre_patologia}`);
+    }
+
+    const tratamientos = contexto.tratamientos.filter(tratamiento =>
+        String(obtenerIdRelacionado(tratamiento.id_atencion_cronico)) === String(item.id));
+    if (tratamientos.length) {
+        const nombresMedicamentos = new Set();
+        tratamientos.forEach(tratamiento => {
+            contexto.detallesTratamiento
+                .filter(detalle =>
+                    String(obtenerIdRelacionado(detalle.id_tratamiento)) === String(tratamiento.id))
+                .forEach(detalle => {
+                    const medicamento = contexto.medicamentosPorId.get(
+                        String(obtenerIdRelacionado(detalle.id_medicamento))
+                    );
+                    if (medicamento?.nombre_medicamento) {
+                        nombresMedicamentos.add(medicamento.nombre_medicamento);
+                    }
+                });
+        });
+        partes.push(nombresMedicamentos.size
+            ? `Tratamiento: ${Array.from(nombresMedicamentos).join(', ')}`
+            : 'Tratamiento registrado');
+    } else {
+        partes.push('Sin tratamiento registrado');
+    }
+
+    if (item.presion_arterial) {
+        partes.push(`Presión: ${item.presion_arterial}`);
+    }
+    partes.push(`Atención #${item.id} - ${formatDate(item.fecha_atencion)}`);
+    return partes.join(' · ');
 }
 
 function cargarAtencionesSolicitudPorFecha(fecha = null) {
@@ -2842,7 +2929,10 @@ function cargarAtencionesSolicitudPorFecha(fecha = null) {
     const atencionesDelDia = window.atencionesSolicitudExamen.filter(item =>
         fechaAtencionISO(item.fecha_atencion) === fechaElegida);
     atencionesDelDia.forEach(item => {
-        atencionSelect.innerHTML += `<option value="${item.id}">Atención #${item.id} - ${formatDate(item.fecha_atencion)}</option>`;
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.textContent = crearEtiquetaAtencionSolicitud(item);
+        atencionSelect.appendChild(option);
     });
     if (!atencionesDelDia.length) {
         atencionSelect.innerHTML = '<option value="">-- No hay atenciones para este día --</option>';
