@@ -1331,11 +1331,10 @@ async function cargarDetalleTratamiento() {
     if (cargando) cargando.style.display = 'block';
     if (tbody) tbody.innerHTML = '';
     try {
-        const [detallesRespuesta, tratamientosRespuesta, medicamentosRespuesta, contexto] = await Promise.all([
+        const [detallesRespuesta, tratamientosRespuesta, medicamentosRespuesta] = await Promise.all([
             fetch(`${API_LOCAL}/detalle-tratamiento/`, { headers: getAuthHeaders() }),
             fetch(`${API_LOCAL}/tratamiento/`, { headers: getAuthHeaders() }),
-            fetch(`${API_LOCAL}/medicamentos/`, { headers: getAuthHeaders() }),
-            cargarContextoPacienteAtenciones()
+            fetch(`${API_LOCAL}/medicamentos/`, { headers: getAuthHeaders() })
         ]);
         if (!detallesRespuesta.ok || !tratamientosRespuesta.ok || !medicamentosRespuesta.ok) {
             throw new Error('No se pudieron cargar los detalles relacionados del tratamiento.');
@@ -1343,18 +1342,14 @@ async function cargarDetalleTratamiento() {
         const detalles = safeArray(await detallesRespuesta.json());
         const tratamientos = new Map(safeArray(await tratamientosRespuesta.json()).map(item => [String(item.id), item]));
         const medicamentos = new Map(safeArray(await medicamentosRespuesta.json()).map(item => [String(item.id), item]));
-        const atenciones = new Map(contexto.atenciones.map(item => [String(item.id), item]));
 
         if (cargando) cargando.style.display = 'none';
         detalles.forEach((item, index) => {
             const tratamiento = tratamientos.get(String(item.id_tratamiento));
-            const atencion = tratamiento
-                ? atenciones.get(String(tratamiento.id_atencion_cronico))
-                : null;
             const medicamento = medicamentos.get(String(item.id_medicamento));
-            const etiquetaTratamiento = tratamiento && atencion
-                ? `${crearEtiquetaAtencionPaciente(atencion, contexto)} · Tratamiento #${tratamiento.id}`
-                : tratamiento ? `Tratamiento #${tratamiento.id}` : 'Sin tratamiento';
+            const etiquetaTratamiento = tratamiento
+                ? `Tratamiento #${tratamiento.id}`
+                : `Tratamiento #${item.id_tratamiento}`;
             const fila = document.createElement('tr');
             fila.innerHTML = `
                 <td>${index + 1}</td>
@@ -1386,7 +1381,6 @@ async function llenarSelectTratamientos(fecha = null) {
         if (!tratamientosRespuesta.ok) throw new Error('No se pudieron cargar los tratamientos.');
         window.tratamientosDetalle = safeArray(await tratamientosRespuesta.json());
         window.atencionesDetalleTratamiento = contexto.atenciones;
-        window.contextoDetalleTratamiento = contexto;
     }
     const fechaInput = document.getElementById('fechaDetalleTratamiento');
     const select = document.getElementById('tratamientoDetalle');
@@ -1406,14 +1400,9 @@ async function llenarSelectTratamientos(fecha = null) {
         fechaAtencionISO(window.atencionesDetalleTratamiento.find(atencion =>
             String(atencion.id) === String(item.id_atencion_cronico))?.fecha_atencion) === fechaElegida);
     tratamientosDelDia.forEach(item => {
-        const atencion = window.atencionesDetalleTratamiento.find(registro =>
-            String(registro.id) === String(item.id_atencion_cronico));
-        const etiqueta = atencion
-            ? `${crearEtiquetaAtencionPaciente(atencion, window.contextoDetalleTratamiento)} · Tratamiento #${item.id}`
-            : `Tratamiento #${item.id} - Atención ${item.id_atencion_cronico} - Paciente sin ficha`;
         const option = document.createElement('option');
         option.value = item.id;
-        option.textContent = etiqueta;
+        option.textContent = `Tratamiento #${item.id}`;
         select.appendChild(option);
     });
     if (!tratamientosDelDia.length) {
