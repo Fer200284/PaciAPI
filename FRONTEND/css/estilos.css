@@ -645,6 +645,12 @@ body.formulario-bloqueado {
     table-layout: auto;
 }
 
+#tablaMedicamentos {
+    width: max-content;
+    min-width: max-content;
+    table-layout: auto;
+}
+
 #tablaSolicitudesExamenes {
     display: table;
     width: max-content;
