@@ -14,6 +14,7 @@ let editandoId = {
     citasmedicas: null,
     medicamentos: null,
     resultadosExamenes: null,
+    solicitudExamen: null,
     usuarios: null,
     tratamientos: null,
     detalleTratamiento: null,
@@ -1292,19 +1293,17 @@ async function cargarTratamientos() {
     if (cargando) cargando.style.display = 'block';
     if (tbody) tbody.innerHTML = '';
     try {
-        const [tratamientosRespuesta, atencionesRespuesta] = await Promise.all([
+        const [tratamientosRespuesta, contextoRespuesta] = await Promise.all([
             fetch(`${API_LOCAL}/tratamiento/`, { headers: getAuthHeaders() }),
-            fetch(`${API_LOCAL}/atencion-cronico/`, { headers: getAuthHeaders() })
+            cargarContextoPacienteAtenciones()
         ]);
         const tratamientos = safeArray(await tratamientosRespuesta.json());
-        const atenciones = Object.fromEntries(
-            safeArray(await atencionesRespuesta.json()).map(item => [item.id, item])
-        );
+        const atenciones = Object.fromEntries(contextoRespuesta.atenciones.map(item => [item.id, item]));
         if (cargando) cargando.style.display = 'none';
         tratamientos.forEach((item, index) => {
             const atencion = atenciones[item.id_atencion_cronico];
             const referenciaAtencion = atencion
-                ? `Atención #${item.id_atencion_cronico}`
+                ? crearEtiquetaAtencionPaciente(atencion, contextoRespuesta)
                 : `Atención #${item.id_atencion_cronico || 'Sin asignar'}`;
             const fila = document.createElement('tr');
             fila.innerHTML = `
@@ -1326,29 +1325,67 @@ async function cargarTratamientos() {
 }
 
 async function cargarDetalleTratamiento() {
-    await cargarCatalogoSimple('detalle-tratamiento', 'Detalles de tratamientos', 'bodyDetalleTratamiento', 'cargandoDetalleTratamiento', (item, index) => `
-        <td>${index + 1}</td>
-        <td>${item.id_tratamiento ? `Tratamiento #${item.id_tratamiento}` : 'Sin tratamiento'}</td>
-        <td>${item.id_medicamento ? `Medicamento #${item.id_medicamento}` : 'Sin medicamento'}</td>
-        <td>${item.cantidad_entregada || ''}</td>
-        <td>${item.indicacion || ''}</td>
-        <td>
-            <button class="btn btn-sm btn-secundario"
-             onclick="editarDetalleTratamiento(${item.id})">✏️ Editar</button>
-            <button class="btn btn-sm btn-peligro" 
-            onclick="eliminarDetalleTratamiento(${item.id})">🗑️ Eliminar</button>
-        </td>
-    `);
+    const cargando = document.getElementById('cargandoDetalleTratamiento');
+    const tbody = document.getElementById('bodyDetalleTratamiento');
+    if (cargando) cargando.style.display = 'block';
+    if (tbody) tbody.innerHTML = '';
+    try {
+        const [detallesRespuesta, tratamientosRespuesta, medicamentosRespuesta, contexto] = await Promise.all([
+            fetch(`${API_LOCAL}/detalle-tratamiento/`, { headers: getAuthHeaders() }),
+            fetch(`${API_LOCAL}/tratamiento/`, { headers: getAuthHeaders() }),
+            fetch(`${API_LOCAL}/medicamentos/`, { headers: getAuthHeaders() }),
+            cargarContextoPacienteAtenciones()
+        ]);
+        if (!detallesRespuesta.ok || !tratamientosRespuesta.ok || !medicamentosRespuesta.ok) {
+            throw new Error('No se pudieron cargar los detalles relacionados del tratamiento.');
+        }
+        const detalles = safeArray(await detallesRespuesta.json());
+        const tratamientos = new Map(safeArray(await tratamientosRespuesta.json()).map(item => [String(item.id), item]));
+        const medicamentos = new Map(safeArray(await medicamentosRespuesta.json()).map(item => [String(item.id), item]));
+        const atenciones = new Map(contexto.atenciones.map(item => [String(item.id), item]));
+
+        if (cargando) cargando.style.display = 'none';
+        detalles.forEach((item, index) => {
+            const tratamiento = tratamientos.get(String(item.id_tratamiento));
+            const atencion = tratamiento
+                ? atenciones.get(String(tratamiento.id_atencion_cronico))
+                : null;
+            const medicamento = medicamentos.get(String(item.id_medicamento));
+            const etiquetaTratamiento = tratamiento && atencion
+                ? `${crearEtiquetaAtencionPaciente(atencion, contexto)} · Tratamiento #${tratamiento.id}`
+                : tratamiento ? `Tratamiento #${tratamiento.id}` : 'Sin tratamiento';
+            const fila = document.createElement('tr');
+            fila.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${etiquetaTratamiento}</td>
+                <td>${medicamento?.nombre_medicamento || 'Sin medicamento'}</td>
+                <td>${item.cantidad_entregada || ''}</td>
+                <td>${item.indicacion || ''}</td>
+                <td>
+                    <button class="btn btn-sm btn-secundario"
+                     onclick="editarDetalleTratamiento(${item.id})">✏️ Editar</button>
+                    <button class="btn btn-sm btn-peligro"
+                    onclick="eliminarDetalleTratamiento(${item.id})">🗑️ Eliminar</button>
+                </td>
+            `;
+            tbody.appendChild(fila);
+        });
+    } catch (error) {
+        if (cargando) cargando.textContent = '❌ Error al cargar detalles de tratamientos.';
+        console.error(error);
+    }
 }
 
 async function llenarSelectTratamientos(fecha = null) {
     if (!window.tratamientosDetalle) {
-        const [tratamientosRespuesta, atencionesRespuesta] = await Promise.all([
+        const [tratamientosRespuesta, contexto] = await Promise.all([
             fetch(`${API_LOCAL}/tratamiento/`, { headers: getAuthHeaders() }),
-            fetch(`${API_LOCAL}/atencion-cronico/`, { headers: getAuthHeaders() })
+            cargarContextoPacienteAtenciones()
         ]);
+        if (!tratamientosRespuesta.ok) throw new Error('No se pudieron cargar los tratamientos.');
         window.tratamientosDetalle = safeArray(await tratamientosRespuesta.json());
-        window.atencionesDetalleTratamiento = safeArray(await atencionesRespuesta.json());
+        window.atencionesDetalleTratamiento = contexto.atenciones;
+        window.contextoDetalleTratamiento = contexto;
     }
     const fechaInput = document.getElementById('fechaDetalleTratamiento');
     const select = document.getElementById('tratamientoDetalle');
@@ -1364,12 +1401,19 @@ async function llenarSelectTratamientos(fecha = null) {
     }
     fechaInput.value = fechaElegida;
     select.innerHTML = '<option value="">-- Seleccione tratamiento --</option>';
-    const fechasAtenciones = Object.fromEntries(window.atencionesDetalleTratamiento.map(item =>
-        [item.id, fechaAtencionISO(item.fecha_atencion)]));
     const tratamientosDelDia = window.tratamientosDetalle.filter(item =>
-        fechasAtenciones[item.id_atencion_cronico] === fechaElegida);
+        fechaAtencionISO(window.atencionesDetalleTratamiento.find(atencion =>
+            String(atencion.id) === String(item.id_atencion_cronico))?.fecha_atencion) === fechaElegida);
     tratamientosDelDia.forEach(item => {
-        select.innerHTML += `<option value="${item.id}">Tratamiento #${item.id} - Atención #${item.id_atencion_cronico}</option>`;
+        const atencion = window.atencionesDetalleTratamiento.find(registro =>
+            String(registro.id) === String(item.id_atencion_cronico));
+        const etiqueta = atencion
+            ? `${crearEtiquetaAtencionPaciente(atencion, window.contextoDetalleTratamiento)} · Tratamiento #${item.id}`
+            : `Tratamiento #${item.id} - Atención ${item.id_atencion_cronico} - Paciente sin ficha`;
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.textContent = etiqueta;
+        select.appendChild(option);
     });
     if (!tratamientosDelDia.length) {
         select.innerHTML = '<option value="">-- No hay tratamientos para este día --</option>';
@@ -1397,10 +1441,38 @@ function fechaAtencionISO(valor) {
     return String(valor || '').slice(0, 10);
 }
 
+async function cargarContextoPacienteAtenciones() {
+    const headers = { headers: getAuthHeaders() };
+    const [atenciones, pacientes, pacientesPatologias] = await Promise.all([
+        fetchJsonOrThrow(`${API_LOCAL}/atencion-cronico/`, headers),
+        fetchJsonOrThrow(`${API_LOCAL}/pacientes/`, headers),
+        fetchJsonOrThrow(`${API_LOCAL}/paciente-patologia/`, headers)
+    ]);
+    return {
+        atenciones: safeArray(atenciones),
+        pacientesPorId: new Map(safeArray(pacientes).map(item => [String(item.id), item])),
+        pacientesPatologiasPorId: new Map(safeArray(pacientesPatologias).map(item => [String(item.id), item]))
+    };
+}
+
+function crearEtiquetaAtencionPaciente(atencion, contexto) {
+    const relacionId = obtenerIdRelacionado(atencion.id_paciente_patologia);
+    const relacion = contexto.pacientesPatologiasPorId.get(String(relacionId));
+    const pacienteId = obtenerIdRelacionado(relacion?.id_paciente);
+    const paciente = contexto.pacientesPorId.get(String(pacienteId));
+    const primerNombre = String(paciente?.nombre || '').trim().split(/\s+/)[0] || '';
+    const primerApellido = String(paciente?.apellidos || '').trim().split(/\s+/)[0] || '';
+    const nombrePaciente = `${primerNombre} ${primerApellido}`.trim();
+    return nombrePaciente
+        ? `Atención ${atencion.id} - ${nombrePaciente}`
+        : `Atención ${atencion.id} - Paciente sin ficha`;
+}
+
 async function llenarSelectAtencionesTratamiento(fecha = null) {
     if (!window.atencionesTratamiento) {
-        const respuesta = await fetch(`${API_LOCAL}/atencion-cronico/`, { headers: getAuthHeaders() });
-        window.atencionesTratamiento = safeArray(await respuesta.json());
+            const contexto = await cargarContextoPacienteAtenciones();
+            window.atencionesTratamiento = contexto.atenciones;
+            window.contextoAtencionesTratamiento = contexto;
     }
     const fechaInput = document.getElementById('fechaAtencionTratamiento');
     const select = document.getElementById('atencionTratamiento');
@@ -1415,11 +1487,14 @@ async function llenarSelectAtencionesTratamiento(fecha = null) {
         }
     }
     fechaInput.value = fechaElegida;
-    select.innerHTML = `<option value="">-- Seleccione una atención del ${fechaElegida} --</option>`;
+    select.innerHTML = '<option value="">-- Seleccione atención y paciente --</option>';
     const atencionesDelDia = window.atencionesTratamiento.filter(item =>
         fechaAtencionISO(item.fecha_atencion) === fechaElegida);
     atencionesDelDia.forEach(item => {
-        select.innerHTML += `<option value="${item.id}">Atención #${item.id} - ${formatDate(item.fecha_atencion)}</option>`;
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.textContent = crearEtiquetaAtencionPaciente(item, window.contextoAtencionesTratamiento);
+        select.appendChild(option);
     });
     if (!atencionesDelDia.length) {
         select.innerHTML = '<option value="">-- No hay atenciones para este día --</option>';
@@ -1962,20 +2037,48 @@ async function guardarExamenLaboratorio() {
 }
 
 async function cargarSolicitudesExamenes() {
-    await cargarCatalogoSimple('solicitud-de-examenes', 
-        'Solicitudes de exámenes', 'bodySolicitudesExamenes', 
-        'cargandoSolicitudesExamenes', (item, index) => `
-        <td>${index + 1}</td>
-        <td>${item.id_examen_de_laboratorio ? `Examen #${item.id_examen_de_laboratorio}` : 'Sin examen'}</td>
-        <td>${item.id_atencion_cronico ? `Atención #${item.id_atencion_cronico}` : 'Sin atención'}</td>
-        <td>${item.indicaciones || ''}</td>
-        <td>${formatDateTime(item.fecha_de_envio)}</td>
-        <td><button class="btn btn-sm btn-secundario" 
-        onclick="editarSolicitudExamen(${item.id})">
-        ✏️ Editar</button><button 
-        class="btn btn-sm btn-peligro"
-         onclick="eliminarSolicitudExamen(${item.id})">🗑️ Eliminar</button></td>
-    `);
+    const cargando = document.getElementById('cargandoSolicitudesExamenes');
+    const tbody = document.getElementById('bodySolicitudesExamenes');
+    if (cargando) cargando.style.display = 'block';
+    if (tbody) tbody.innerHTML = '';
+    try {
+        const [solicitudesRespuesta, examenesRespuesta, contexto] = await Promise.all([
+            fetch(`${API_LOCAL}/solicitud-de-examenes/`, { headers: getAuthHeaders() }),
+            fetch(`${API_LOCAL}/examenes-de-laboratorio/`, { headers: getAuthHeaders() }),
+            cargarContextoPacienteAtenciones()
+        ]);
+        if (!solicitudesRespuesta.ok || !examenesRespuesta.ok) {
+            throw new Error('No se pudieron cargar las solicitudes o los exámenes.');
+        }
+        const solicitudes = safeArray(await solicitudesRespuesta.json());
+        const examenes = new Map(safeArray(await examenesRespuesta.json()).map(item => [String(item.id), item]));
+        const atenciones = new Map(contexto.atenciones.map(item => [String(item.id), item]));
+        if (cargando) cargando.style.display = 'none';
+
+        solicitudes.forEach((item, index) => {
+            const examen = examenes.get(String(item.id_examen_de_laboratorio));
+            const atencion = atenciones.get(String(item.id_atencion_cronico));
+            const referenciaAtencion = atencion
+                ? crearEtiquetaAtencionPaciente(atencion, contexto)
+                : `Atención ${item.id_atencion_cronico || 'sin asignar'} - Paciente sin ficha`;
+            const fila = document.createElement('tr');
+            fila.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${examen?.nombre_examen || 'Sin examen'}</td>
+                <td>${referenciaAtencion}</td>
+                <td>${item.indicaciones || ''}</td>
+                <td>${formatDateTime(item.fecha_de_envio)}</td>
+                <td><button class="btn btn-sm btn-secundario"
+                onclick="editarSolicitudExamen(${item.id})">✏️ Editar</button><button
+                class="btn btn-sm btn-peligro"
+                onclick="eliminarSolicitudExamen(${item.id})">🗑️ Eliminar</button></td>
+            `;
+            tbody.appendChild(fila);
+        });
+    } catch (error) {
+        if (cargando) cargando.textContent = '❌ Error al cargar solicitudes de exámenes.';
+        console.error(error);
+    }
 }
 
 async function editarExamenLaboratorio(id) {
@@ -2010,26 +2113,7 @@ async function eliminarExamenLaboratorio(id) {
 }
 
 async function editarSolicitudExamen(id) {
-    const respuesta = await fetch(`${API_LOCAL}/solicitud-de-examenes/${id}/`, 
-        { headers: getAuthHeaders() });
-    if (!respuesta.ok) return;
-    const item = await respuesta.json();
-    const examen = prompt('ID del examen de laboratorio:', item.id_examen_de_laboratorio || '');
-    if (examen === null) return;
-    const atencion = prompt('ID de la atención crónica:', item.id_atencion_cronico || '');
-    if (atencion === null) return;
-    const indicaciones = prompt('Indicaciones:', item.indicaciones || '');
-    if (indicaciones === null) return;
-    const actualizado = await fetch(`${API_LOCAL}/solicitud-de-examenes/${id}/`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
-            id_examen_de_laboratorio: Number(examen),
-            id_atencion_cronico: Number(atencion),
-            indicaciones: indicaciones.trim()
-        })
-    });
-    if (actualizado.ok) cargarSolicitudesExamenes();
+    await abrirModalSolicitudExamen(id);
 }
 
 async function eliminarSolicitudExamen(id) {
@@ -2804,39 +2888,20 @@ async function editarResultado(id) {
     await abrirModalResultadosExamenes('editar', id);
 }
 
-async function abrirModalSolicitudExamen() {
+async function abrirModalSolicitudExamen(id = null) {
+    editandoId.solicitudExamen = id;
     const error = document.getElementById('solicitudExamenError');
     error.textContent = '';
     try {
         const headers = { headers: getAuthHeaders() };
-        const [
-            examenes,
-            atenciones,
-            pacientes,
-            pacientesPatologias,
-            patologias,
-            tratamientos,
-            detallesTratamiento,
-            medicamentos
-        ] = await Promise.all([
+        const requests = [
             fetchJsonOrThrow(`${API_LOCAL}/examenes-de-laboratorio/`, headers),
-            fetchJsonOrThrow(`${API_LOCAL}/atencion-cronico/`, headers),
-            fetchJsonOrThrow(`${API_LOCAL}/pacientes/`, headers),
-            fetchJsonOrThrow(`${API_LOCAL}/paciente-patologia/`, headers),
-            fetchJsonOrThrow(`${API_LOCAL}/patologias-cronicas/`, headers),
-            fetchJsonOrThrow(`${API_LOCAL}/tratamiento/`, headers),
-            fetchJsonOrThrow(`${API_LOCAL}/detalle-tratamiento/`, headers),
-            fetchJsonOrThrow(`${API_LOCAL}/medicamentos/`, headers)
-        ]);
-        window.atencionesSolicitudExamen = safeArray(atenciones);
-        window.contextoSolicitudExamen = {
-            pacientesPorId: new Map(safeArray(pacientes).map(item => [String(item.id), item])),
-            pacientesPatologiasPorId: new Map(safeArray(pacientesPatologias).map(item => [String(item.id), item])),
-            patologiasPorId: new Map(safeArray(patologias).map(item => [String(item.id), item])),
-            tratamientos: safeArray(tratamientos),
-            detallesTratamiento: safeArray(detallesTratamiento),
-            medicamentosPorId: new Map(safeArray(medicamentos).map(item => [String(item.id), item]))
-        };
+            cargarContextoPacienteAtenciones()
+        ];
+        if (id) requests.push(fetchJsonOrThrow(`${API_LOCAL}/solicitud-de-examenes/${id}/`, headers));
+        const [examenes, contexto, solicitud] = await Promise.all(requests);
+        window.atencionesSolicitudExamen = contexto.atenciones;
+        window.contextoSolicitudExamen = contexto;
 
         const examenSelect = document.getElementById('examenSolicitud');
         examenSelect.innerHTML = '<option value="">-- Seleccione examen de laboratorio --</option>';
@@ -2848,12 +2913,23 @@ async function abrirModalSolicitudExamen() {
             fechaInput.dataset.configurado = 'true';
             fechaInput.addEventListener('change', () => cargarAtencionesSolicitudPorFecha(fechaInput.value));
         }
-        await cargarAtencionesSolicitudPorFecha();
-        document.getElementById('indicacionesSolicitud').value = '';
+        if (solicitud) {
+            const atencion = contexto.atenciones.find(item =>
+                String(item.id) === String(solicitud.id_atencion_cronico));
+            fechaInput.value = atencion ? fechaAtencionISO(atencion.fecha_atencion) : fechaLocalISO();
+        }
+        await cargarAtencionesSolicitudPorFecha(solicitud ? fechaInput.value : null);
+        document.getElementById('examenSolicitud').value = solicitud?.id_examen_de_laboratorio || '';
+        document.getElementById('atencionSolicitud').value = solicitud?.id_atencion_cronico || '';
+        document.getElementById('indicacionesSolicitud').value = solicitud?.indicaciones || '';
+        document.getElementById('modalSolicitudExamenTitulo').textContent =
+            id ? 'Editar solicitud de examen' : 'Nueva solicitud de examen';
+        document.getElementById('guardarSolicitudExamenBtn').textContent =
+            id ? 'Guardar cambios' : 'Guardar solicitud';
         abrirModal('modalSolicitudExamen');
     } catch (loadError) {
-        console.error('No se pudo cargar la información de la solicitud de examen:', loadError);
-        error.textContent = 'No se pudo cargar la información de pacientes y atenciones. Intente de nuevo.';
+        console.error('No se pudo cargar la solicitud de examen:', loadError);
+        error.textContent = 'No se pudo cargar la información necesaria. Intente de nuevo.';
         document.getElementById('examenSolicitud').value = '';
         document.getElementById('atencionSolicitud').innerHTML =
             '<option value="">No se pudieron cargar las atenciones</option>';
@@ -2866,51 +2942,7 @@ function obtenerIdRelacionado(valor) {
 }
 
 function crearEtiquetaAtencionSolicitud(item) {
-    const contexto = window.contextoSolicitudExamen;
-    const relacionId = String(obtenerIdRelacionado(item.id_paciente_patologia) || '');
-    const relacion = contexto.pacientesPatologiasPorId.get(relacionId);
-    const pacienteId = String(obtenerIdRelacionado(relacion?.id_paciente) || '');
-    const paciente = contexto.pacientesPorId.get(pacienteId);
-    const patologiaId = String(obtenerIdRelacionado(relacion?.id_patologia_cronica) || '');
-    const patologia = contexto.patologiasPorId.get(patologiaId);
-    const pacienteNombre = paciente
-        ? `${paciente.nombre || ''} ${paciente.apellidos || ''}`.trim()
-        : `Paciente sin ficha (atención #${item.id})`;
-    const partes = [pacienteNombre];
-
-    if (patologia?.nombre_patologia) {
-        partes.push(`Patología: ${patologia.nombre_patologia}`);
-    }
-
-    const tratamientos = contexto.tratamientos.filter(tratamiento =>
-        String(obtenerIdRelacionado(tratamiento.id_atencion_cronico)) === String(item.id));
-    if (tratamientos.length) {
-        const nombresMedicamentos = new Set();
-        tratamientos.forEach(tratamiento => {
-            contexto.detallesTratamiento
-                .filter(detalle =>
-                    String(obtenerIdRelacionado(detalle.id_tratamiento)) === String(tratamiento.id))
-                .forEach(detalle => {
-                    const medicamento = contexto.medicamentosPorId.get(
-                        String(obtenerIdRelacionado(detalle.id_medicamento))
-                    );
-                    if (medicamento?.nombre_medicamento) {
-                        nombresMedicamentos.add(medicamento.nombre_medicamento);
-                    }
-                });
-        });
-        partes.push(nombresMedicamentos.size
-            ? `Tratamiento: ${Array.from(nombresMedicamentos).join(', ')}`
-            : 'Tratamiento registrado');
-    } else {
-        partes.push('Sin tratamiento registrado');
-    }
-
-    if (item.presion_arterial) {
-        partes.push(`Presión: ${item.presion_arterial}`);
-    }
-    partes.push(`Atención #${item.id} - ${formatDate(item.fecha_atencion)}`);
-    return partes.join(' · ');
+    return crearEtiquetaAtencionPaciente(item, window.contextoSolicitudExamen);
 }
 
 function cargarAtencionesSolicitudPorFecha(fecha = null) {
@@ -2925,7 +2957,7 @@ function cargarAtencionesSolicitudPorFecha(fecha = null) {
         fechaElegida = fechasDisponibles[fechasDisponibles.length - 1];
     }
     fechaInput.value = fechaElegida;
-    atencionSelect.innerHTML = `<option value="">-- Seleccione una atención del ${fechaElegida} --</option>`;
+    atencionSelect.innerHTML = '<option value="">-- Seleccione atención y paciente --</option>';
     const atencionesDelDia = window.atencionesSolicitudExamen.filter(item =>
         fechaAtencionISO(item.fecha_atencion) === fechaElegida);
     atencionesDelDia.forEach(item => {
@@ -2941,6 +2973,7 @@ function cargarAtencionesSolicitudPorFecha(fecha = null) {
 
 async function guardarSolicitudExamen() {
     const error = document.getElementById('solicitudExamenError');
+    error.textContent = '';
     const data = {
         id_examen_de_laboratorio: Number(document.getElementById('examenSolicitud').value),
         id_atencion_cronico: Number(document.getElementById('atencionSolicitud').value),
@@ -2950,13 +2983,14 @@ async function guardarSolicitudExamen() {
         error.textContent = 'Seleccione examen, atención y escriba las indicaciones.';
         return;
     }
-    const respuesta = await fetch(`${API_LOCAL}/solicitud-de-examenes/`, {
-        method: 'POST',
+    const id = editandoId.solicitudExamen;
+    const respuesta = await fetch(`${API_LOCAL}/solicitud-de-examenes/${id ? `${id}/` : ''}`, {
+        method: id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(data)
     });
     if (!respuesta.ok) {
-        error.textContent = 'No se pudo guardar la solicitud.';
+        error.textContent = id ? 'No se pudieron guardar los cambios.' : 'No se pudo guardar la solicitud.';
         return;
     }
     cerrarModal('modalSolicitudExamen');

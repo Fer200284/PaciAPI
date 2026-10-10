@@ -575,8 +575,8 @@
                             id="tablaSolicitudesExamenes">
                             <thead><tr>
                                 <th>#</th>
-                                <th>Examen de laboratorio</th>
-                                <th>Atención crónica</th>
+                                <th>Examen</th>
+                                <th>Atención y paciente</th>
                                 <th>Indicaciones</th>
                                 <th>Fecha de envío</th>
                                 <th>Acciones</th>
@@ -1259,7 +1259,7 @@
         <div class="modal-overlay" id="modalSolicitudExamen">
             <div class="modal">
                 <div class="modal-header">
-                    <h3>Nueva solicitud de examen</h3>
+                    <h3 id="modalSolicitudExamenTitulo">Nueva solicitud de examen</h3>
                     <button onclick="cerrarModal('modalSolicitudExamen')">✖</button>
                 </div>
                 <div class="modal-body">
@@ -1275,7 +1275,7 @@
                             <input id="fechaSolicitudExamen" type="date" class="form-input" required>
                         </label>
                         <label class="form-field">
-                            <span>Atenciones del día seleccionado <b>*</b></span>
+                            <span>Atención y paciente <b>*</b></span>
                             <select id="atencionSolicitud" class="form-input" required>
                                 <option value="">-- Cargando atenciones --</option>
                             </select>
@@ -1293,7 +1293,7 @@
                     <span id="solicitudExamenError" style="color:red"></span>
                     <button class="btn" 
                     onclick="cerrarModal('modalSolicitudExamen')">Cancelar</button>
-                    <button class="btn btn-primario" 
+                    <button id="guardarSolicitudExamenBtn" class="btn btn-primario"
                     onclick="guardarSolicitudExamen()">Guardar solicitud</button>
                 </div>
             </div>
