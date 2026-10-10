@@ -1527,15 +1527,6 @@ async function llenarSelectAtencionesTratamiento(fecha = null) {
     const fechaInput = document.getElementById('fechaAtencionTratamiento');
     const select = document.getElementById('atencionTratamiento');
     let fechaElegida = fecha || fechaInput.value || fechaLocalISO();
-    if (!fecha) {
-        const fechasDisponibles = window.atencionesTratamiento
-            .map(item => fechaAtencionISO(item.fecha_atencion))
-            .filter(Boolean)
-            .sort();
-        if (fechasDisponibles.length && !fechasDisponibles.includes(fechaElegida)) {
-            fechaElegida = fechasDisponibles[fechasDisponibles.length - 1];
-        }
-    }
     fechaInput.value = fechaElegida;
     select.innerHTML = '<option value="">-- Seleccione atención y paciente --</option>';
     const atencionesDelDia = window.atencionesTratamiento.filter(item =>
@@ -1556,13 +1547,14 @@ async function abrirModalTratamiento(id = null) {
     document.getElementById('modalTratamientoTitulo').textContent = id ? 'Editar tratamiento' : 'Nuevo tratamiento';
     document.getElementById('observacionesTratamiento').value = '';
     const fechaInput = document.getElementById('fechaAtencionTratamiento');
+    fechaInput.value = fechaLocalISO();
     if (!fechaInput.dataset.configurado) {
         fechaInput.dataset.configurado = 'true';
         fechaInput.addEventListener('change', () => llenarSelectAtencionesTratamiento(fechaInput.value));
     }
     let item = null;
     if (id) {
-        await llenarSelectAtencionesTratamiento(fechaLocalISO());
+        await llenarSelectAtencionesTratamiento(fechaInput.value);
         const respuesta = await fetch(`${API_LOCAL}/tratamiento/${id}/`, { headers: getAuthHeaders() });
         item = await respuesta.json();
         const atencion = window.atencionesTratamiento?.find(registro => registro.id === item.id_atencion_cronico);
