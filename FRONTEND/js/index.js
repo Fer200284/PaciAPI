@@ -10,11 +10,12 @@ const LOGIN_URL =
 
 let editandoId = {
     pacientes: null,
+    examenesLaboratorio: null,
     medicos: null,
     citasmedicas: null,
+    solicitudExamen: null,
     medicamentos: null,
     resultadosExamenes: null,
-    solicitudExamen: null,
     usuarios: null,
     tratamientos: null,
     detalleTratamiento: null,
@@ -1455,6 +1456,23 @@ async function cargarContextoPacienteAtenciones() {
     };
 }
 
+async function cargarContextoSolicitudesResultados() {
+    const headers = { headers: getAuthHeaders() };
+    const [solicitudes, examenes, contexto, tratamientos] = await Promise.all([
+        fetchJsonOrThrow(`${API_LOCAL}/solicitud-de-examenes/`, headers),
+        fetchJsonOrThrow(`${API_LOCAL}/examenes-de-laboratorio/`, headers),
+        cargarContextoPacienteAtenciones(),
+        fetchJsonOrThrow(`${API_LOCAL}/tratamiento/`, headers)
+    ]);
+    return {
+        ...contexto,
+        solicitudes: safeArray(solicitudes),
+        examenesPorId: new Map(safeArray(examenes).map(item => [String(item.id), item])),
+        tratamientos: safeArray(tratamientos),
+        solicitudesPorId: new Map(safeArray(solicitudes).map(item => [String(item.id), item]))
+    };
+}
+
 function crearEtiquetaAtencionPaciente(atencion, contexto) {
     const relacionId = obtenerIdRelacionado(atencion.id_paciente_patologia);
     const relacion = contexto.pacientesPatologiasPorId.get(String(relacionId));
@@ -1466,6 +1484,23 @@ function crearEtiquetaAtencionPaciente(atencion, contexto) {
     return nombrePaciente
         ? `Atención ${atencion.id} - ${nombrePaciente}`
         : `Atención ${atencion.id} - Paciente sin ficha`;
+}
+
+function crearEtiquetaSolicitudResultado(solicitud, contexto) {
+    const examenId = obtenerIdRelacionado(solicitud.id_examen_de_laboratorio);
+    const examen = contexto.examenesPorId.get(String(examenId));
+    const atencionId = obtenerIdRelacionado(solicitud.id_atencion_cronico);
+    const atencion = contexto.atenciones.find(item => String(item.id) === String(atencionId));
+    const partes = [examen?.nombre_examen || 'Examen sin nombre'];
+    if (atencion) {
+        partes.push(crearEtiquetaAtencionPaciente(atencion, contexto));
+        const tratamientos = contexto.tratamientos.filter(item =>
+            String(obtenerIdRelacionado(item.id_atencion_cronico)) === String(atencion.id));
+        tratamientos.forEach(tratamiento => partes.push(`Tratamiento #${tratamiento.id}`));
+    } else {
+        partes.push(`Atención ${atencionId || 'sin asignar'} - Paciente sin ficha`);
+    }
+    return partes.join(' · ');
 }
 
 async function llenarSelectAtencionesTratamiento(fecha = null) {
@@ -1889,16 +1924,23 @@ async function cargarResultadosExamenes() {
     if (tbody) tbody.innerHTML = '';
 
     try {
-        const respuesta = await fetch(`${API_LOCAL}/resultados-examenes/`, { headers: getAuthHeaders() });
-        const data = await respuesta.json();
-        const resultados = safeArray(data);
+        const [resultadosData, contexto] = await Promise.all([
+            fetchJsonOrThrow(`${API_LOCAL}/resultados-examenes/`, { headers: getAuthHeaders() }),
+            cargarContextoSolicitudesResultados()
+        ]);
+        const resultados = safeArray(resultadosData);
         if (cargando) cargando.style.display = 'none';
 
         resultados.forEach((resItem) => {
+            const solicitud = contexto.solicitudesPorId.get(
+                String(obtenerIdRelacionado(resItem.id_solicitud_examen))
+            );
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${resItem.id || ''}</td>
-                <td>${textValue(resItem, 'id_solicitud_examen') ? `Solicitud #${textValue(resItem, 'id_solicitud_examen')}` : 'Sin solicitud'}</td>
+                <td>${solicitud
+                    ? crearEtiquetaSolicitudResultado(solicitud, contexto)
+                    : 'Solicitud sin información relacionada'}</td>
                 <td>${textValue(resItem, 'valor_resultado') ? `${textValue(resItem, 'valor_resultado')}%` : '-'}</td>
                 <td>${textValue(resItem, 'interpretacion') || ''}</td>
                 <td>${formatDateTime(textValue(resItem, 'fecha_resultado'))}</td>
@@ -1916,21 +1958,37 @@ async function cargarResultadosExamenes() {
 async function abrirModalResultadosExamenes(modo, id = null) {
     limpiarErroresModales();
     editandoId.resultadosExamenes = id;
+    const error = document.getElementById('ResultadosExamenesError');
+    error.textContent = '';
     document.getElementById('resultado').value = '';
     document.getElementById('nombre_examen').value = '';
-    await llenarSelectSolicitudesExamenes('nomResultadosExamenes');
-    if (id) {
-        const respuesta = await fetch(`${API_LOCAL}/resultados-examenes/${id}/`, { headers: getAuthHeaders() });
-        const item = await respuesta.json();
-        document.getElementById('nomResultadosExamenes').value = item.id_solicitud_examen;
-        document.getElementById('resultado').value = item.valor_resultado || '';
-        document.getElementById('nombre_examen').value = item.interpretacion || '';
+    try {
+        await llenarSelectSolicitudesExamenes('nomResultadosExamenes');
+        if (id) {
+            const item = await fetchJsonOrThrow(
+                `${API_LOCAL}/resultados-examenes/${id}/`,
+                { headers: getAuthHeaders() }
+            );
+            document.getElementById('nomResultadosExamenes').value =
+                obtenerIdRelacionado(item.id_solicitud_examen);
+            document.getElementById('resultado').value = item.valor_resultado || '';
+            document.getElementById('nombre_examen').value = item.interpretacion || '';
+        }
+        document.getElementById('modalRETitulo').textContent =
+            id ? 'Editar resultado de examen' : 'Nuevo resultado de examen';
+        document.getElementById('guardarResultadoExamenBtn').textContent =
+            id ? 'Guardar cambios' : 'Guardar resultado';
+        abrirModal('modalResultadosExamenes');
+    } catch (loadError) {
+        error.textContent = 'No se pudo cargar el resultado y sus solicitudes relacionadas.';
+        console.error('No se pudo abrir el formulario del resultado:', loadError);
+        abrirModal('modalResultadosExamenes');
     }
-    abrirModal('modalResultadosExamenes');
 }
 
 async function guardarResultadosExamenes() {
     const error = document.getElementById('ResultadosExamenesError');
+    error.textContent = '';
     const solicitud = document.getElementById('nomResultadosExamenes').value;
     const valorResultado = document.getElementById('resultado').value.trim().replace('%', '').replace(',', '.');
     if (!solicitud) {
@@ -2003,16 +2061,40 @@ async function cargarExamenesLaboratorio() {
     `);
 }
 
-function abrirModalExamenLaboratorio() {
+async function abrirModalExamenLaboratorio(id = null) {
+    editandoId.examenesLaboratorio = id;
+    const error = document.getElementById('examenLaboratorioError');
+    error.textContent = '';
     document.getElementById('nombreExamenLaboratorio').value = '';
     document.getElementById('unidadExamenLaboratorio').value = '';
     document.getElementById('referenciaExamenLaboratorio').value = '';
     document.getElementById('estadoExamenLaboratorio').value = 'true';
-    abrirModal('modalExamenLaboratorio');
+    try {
+        if (id) {
+            const item = await fetchJsonOrThrow(
+                `${API_LOCAL}/examenes-de-laboratorio/${id}/`,
+                { headers: getAuthHeaders() }
+            );
+            document.getElementById('nombreExamenLaboratorio').value = item.nombre_examen || '';
+            document.getElementById('unidadExamenLaboratorio').value = item.unidad_medida || '';
+            document.getElementById('referenciaExamenLaboratorio').value = item.valor_referencia || '';
+            document.getElementById('estadoExamenLaboratorio').value = String(item.estado);
+        }
+        document.getElementById('modalExamenLaboratorioTitulo').textContent =
+            id ? 'Editar examen de laboratorio' : 'Nuevo examen de laboratorio';
+        document.getElementById('guardarExamenLaboratorioBtn').textContent =
+            id ? 'Guardar cambios' : 'Guardar examen';
+        abrirModal('modalExamenLaboratorio');
+    } catch (loadError) {
+        error.textContent = 'No se pudo cargar el examen de laboratorio.';
+        console.error('No se pudo abrir el formulario del examen:', loadError);
+        abrirModal('modalExamenLaboratorio');
+    }
 }
 
 async function guardarExamenLaboratorio() {
     const error = document.getElementById('examenLaboratorioError');
+    error.textContent = '';
     const data = {
         nombre_examen: document.getElementById('nombreExamenLaboratorio').value.trim(),
         unidad_medida: document.getElementById('unidadExamenLaboratorio').value.trim() || null,
@@ -2023,13 +2105,14 @@ async function guardarExamenLaboratorio() {
         error.textContent = 'Escriba el nombre del examen.';
         return;
     }
-    const respuesta = await fetch(`${API_LOCAL}/examenes-de-laboratorio/`, {
-        method: 'POST',
+    const id = editandoId.examenesLaboratorio;
+    const respuesta = await fetch(`${API_LOCAL}/examenes-de-laboratorio/${id ? `${id}/` : ''}`, {
+        method: id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
         body: JSON.stringify(data)
     });
     if (!respuesta.ok) {
-        error.textContent = 'No se pudo guardar el examen.';
+        error.textContent = id ? 'No se pudieron guardar los cambios.' : 'No se pudo guardar el examen.';
         return;
     }
     cerrarModal('modalExamenLaboratorio');
@@ -2082,27 +2165,7 @@ async function cargarSolicitudesExamenes() {
 }
 
 async function editarExamenLaboratorio(id) {
-    const respuesta = await fetch(`${API_LOCAL}/examenes-de-laboratorio/${id}/`, 
-        { headers: getAuthHeaders() });
-    if (!respuesta.ok) return;
-    const item = await respuesta.json();
-    const nombre = prompt('Nombre del examen:', item.nombre_examen || '');
-    if (nombre === null) return;
-    const unidad = prompt('Unidad de medida:', item.unidad_medida || '');
-    if (unidad === null) return;
-    const referencia = prompt('Valor de referencia:', item.valor_referencia || '');
-    if (referencia === null) return;
-    const actualizado = await fetch(`${API_LOCAL}/examenes-de-laboratorio/${id}/`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify({
-            nombre_examen: nombre.trim(),
-            unidad_medida: unidad.trim(),
-            valor_referencia: referencia.trim(),
-            estado: item.estado
-        })
-    });
-    if (actualizado.ok) cargarExamenesLaboratorio();
+    await abrirModalExamenLaboratorio(id);
 }
 
 async function eliminarExamenLaboratorio(id) {
@@ -2325,20 +2388,17 @@ async function llenarSelectCategoriasMedicamentos(idSelect) {
 }
 
 async function llenarSelectSolicitudesExamenes(idSelect) {
-    try {
-        const res = await fetch(`${API_LOCAL}/solicitud-de-examenes/`, { headers: getAuthHeaders() });
-        const data = await res.json();
-        const solicitudes = safeArray(data);
-        const select = document.getElementById(idSelect);
-        if (!select) return;
+    const contexto = await cargarContextoSolicitudesResultados();
+    const select = document.getElementById(idSelect);
+    if (!select) return;
 
-        select.innerHTML = '<option value="">-- Seleccione Solicitud --</option>';
-        solicitudes.forEach(item => {
-            select.innerHTML += `<option value="${item.id}">Solicitud #${item.id}</option>`;
-        });
-    } catch (e) {
-        console.error('Error al cargar solicitudes:', e);
-    }
+    select.innerHTML = '<option value="">-- Seleccione examen, atención y paciente --</option>';
+    contexto.solicitudes.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.textContent = crearEtiquetaSolicitudResultado(item, contexto);
+        select.appendChild(option);
+    });
 }
 
 function configurarBuscadores() {

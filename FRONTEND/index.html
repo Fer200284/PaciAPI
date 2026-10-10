@@ -1218,13 +1218,13 @@
         <div class="modal-overlay" id="modalResultadosExamenes">
             <div class="modal">
                 <div class="modal-header">
-                    <h3 id="modalRETitulo">Nuevo Resultado</h3>
+                    <h3 id="modalRETitulo">Nuevo resultado de examen</h3>
                     <button onclick="cerrarModal('modalResultadosExamenes')">✖</button>
                 </div>
                 <div class="modal-body">
                     <div class="form-grid-paciente">
                         <label class="form-field">
-                            <span>Solicitud <b>*</b></span>
+                            <span>Examen, atención y paciente <b>*</b></span>
                             <select id="nomResultadosExamenes" class="form-input" required>
                                 <option value="">-- Seleccione solicitud --</option>
                             </select>
@@ -1250,7 +1250,7 @@
                     <span id="ResultadosExamenesError" style="color:red"></span>
                     <button class="btn" 
                     onclick="cerrarModal('modalResultadosExamenes')">Cancelar</button>
-                    <button class="btn btn-primario" 
+                    <button id="guardarResultadoExamenBtn" class="btn btn-primario"
                     onclick="guardarResultadosExamenes()">Guardar</button>
                 </div>
             </div>
@@ -1302,7 +1302,7 @@
         <div class="modal-overlay" id="modalExamenLaboratorio">
             <div class="modal">
                 <div class="modal-header">
-                    <h3>Nuevo examen de laboratorio</h3>
+                    <h3 id="modalExamenLaboratorioTitulo">Nuevo examen de laboratorio</h3>
                     <button onclick="cerrarModal('modalExamenLaboratorio')">✖</button>
                 </div>
                 <div class="modal-body">
@@ -1338,7 +1338,7 @@
                     <span id="examenLaboratorioError" style="color:red"></span>
                     <button class="btn" 
                     onclick="cerrarModal('modalExamenLaboratorio')">Cancelar</button>
-                    <button class="btn btn-primario" 
+                    <button id="guardarExamenLaboratorioBtn" class="btn btn-primario"
                     onclick="guardarExamenLaboratorio()">Guardar examen</button>
                 </div>
             </div>
