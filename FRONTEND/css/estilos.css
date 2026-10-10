@@ -640,14 +640,14 @@ body.formulario-bloqueado {
 }
 
 #tablaResultadosExamenes {
-    width: max-content;
-    min-width: max-content;
+    width: 100%;
+    min-width: 980px;
     table-layout: auto;
 }
 
 #tablaMedicamentos {
-    width: max-content;
-    min-width: max-content;
+    width: 100%;
+    min-width: 980px;
     table-layout: auto;
 }
 
