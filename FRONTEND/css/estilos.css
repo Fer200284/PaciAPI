@@ -639,6 +639,12 @@ body.formulario-bloqueado {
     min-width: 980px;
 }
 
+#tablaResultadosExamenes {
+    width: max-content;
+    min-width: max-content;
+    table-layout: auto;
+}
+
 #tablaSolicitudesExamenes {
     display: table;
     width: max-content;
