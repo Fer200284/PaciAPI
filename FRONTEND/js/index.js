@@ -1435,9 +1435,10 @@ function crearEtiquetaTratamientoDetalle(tratamiento, contexto) {
     const primerNombre = String(paciente?.nombre || '').trim().split(/\s+/)[0] || '';
     const primerApellido = String(paciente?.apellidos || '').trim().split(/\s+/)[0] || '';
     const nombrePaciente = `${primerNombre} ${primerApellido}`.trim();
+    const identificacionAtencion = atencionId ? `Atención #${atencionId}` : 'Sin atención';
     return nombrePaciente
-        ? `#${tratamiento.id} - ${nombrePaciente}`
-        : `#${tratamiento.id}`;
+        ? `#${tratamiento.id} - ${identificacionAtencion} - ${nombrePaciente}`
+        : `#${tratamiento.id} - ${identificacionAtencion}`;
 }
 
 async function llenarSelectMedicamentosDetalle() {
