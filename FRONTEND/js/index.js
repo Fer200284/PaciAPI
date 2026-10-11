@@ -19,6 +19,7 @@ let editandoId = {
     usuarios: null,
     tratamientos: null,
     detalleTratamiento: null,
+    tratamientoDetalleOriginal: null,
     categoriaMedicamento: null,
     sector: null,
     especialidad: null,
@@ -1386,16 +1387,21 @@ async function cargarDetalleTratamiento() {
     }
 }
 
-async function llenarSelectTratamientos(fecha = null) {
-    if (!window.tratamientosDetalle) {
-        const [tratamientosRespuesta, contexto] = await Promise.all([
-            fetch(`${API_LOCAL}/tratamiento/`, { headers: getAuthHeaders() }),
-            cargarContextoPacienteAtenciones()
-        ]);
-        if (!tratamientosRespuesta.ok) throw new Error('No se pudieron cargar los tratamientos.');
-        window.tratamientosDetalle = safeArray(await tratamientosRespuesta.json());
-        window.atencionesDetalleTratamiento = contexto.atenciones;
-        window.contextoDetalleTratamiento = contexto;
+async function cargarDatosTratamientosDetalle() {
+    const [tratamientosRespuesta, contexto] = await Promise.all([
+        fetch(`${API_LOCAL}/tratamiento/`, { headers: getAuthHeaders(), cache: 'no-store' }),
+        cargarContextoPacienteAtenciones()
+    ]);
+    if (!tratamientosRespuesta.ok) throw new Error('No se pudieron cargar los tratamientos.');
+    window.tratamientosDetalle = safeArray(await tratamientosRespuesta.json());
+    window.atencionesDetalleTratamiento = contexto.atenciones;
+    window.contextoDetalleTratamiento = contexto;
+}
+
+async function llenarSelectTratamientos(fecha = null, atencionSeleccionadaId = null) {
+    if (!window.tratamientosDetalle || !window.atencionesDetalleTratamiento ||
+        !window.contextoDetalleTratamiento) {
+        await cargarDatosTratamientosDetalle();
     }
     const fechaInput = document.getElementById('fechaDetalleTratamiento');
     const select = document.getElementById('tratamientoDetalle');
@@ -1410,19 +1416,22 @@ async function llenarSelectTratamientos(fecha = null) {
         }
     }
     fechaInput.value = fechaElegida;
-    select.innerHTML = '<option value="">-- Seleccione tratamiento --</option>';
-    const tratamientosDelDia = window.tratamientosDetalle.filter(item =>
-        fechaAtencionISO(window.atencionesDetalleTratamiento.find(atencion =>
-            String(atencion.id) === String(item.id_atencion_cronico))?.fecha_atencion) === fechaElegida);
-    tratamientosDelDia.forEach(item => {
+    select.innerHTML = '<option value="">-- Seleccione atención y paciente --</option>';
+    const atencionesDelDia = window.atencionesDetalleTratamiento.filter(item =>
+        fechaAtencionISO(item.fecha_atencion) === fechaElegida);
+    atencionesDelDia.forEach(item => {
         const option = document.createElement('option');
         option.value = item.id;
-        option.textContent = crearEtiquetaTratamientoDetalle(item, window.contextoDetalleTratamiento);
+        option.textContent = crearEtiquetaAtencionPaciente(
+            item,
+            window.contextoDetalleTratamiento
+        );
         select.appendChild(option);
     });
-    if (!tratamientosDelDia.length) {
-        select.innerHTML = '<option value="">-- No hay tratamientos para este día --</option>';
+    if (!atencionesDelDia.length) {
+        select.innerHTML = '<option value="">-- No hay atenciones para este día --</option>';
     }
+    if (atencionSeleccionadaId) select.value = atencionSeleccionadaId;
 }
 
 function crearEtiquetaTratamientoDetalle(tratamiento, contexto) {
@@ -1463,7 +1472,7 @@ function fechaAtencionISO(valor) {
 }
 
 async function cargarContextoPacienteAtenciones() {
-    const headers = { headers: getAuthHeaders() };
+    const headers = { headers: getAuthHeaders(), cache: 'no-store' };
     const [atenciones, pacientes, pacientesPatologias] = await Promise.all([
         fetchJsonOrThrow(`${API_LOCAL}/atencion-cronico/`, headers),
         fetchJsonOrThrow(`${API_LOCAL}/pacientes/`, headers),
@@ -1584,7 +1593,9 @@ async function guardarTratamiento() {
         body: JSON.stringify(data)
     });
     if (!respuesta.ok) {
-        error.textContent = 'No se pudo guardar el tratamiento.';
+        const errores = await respuesta.json();
+        error.textContent = Object.values(errores).flat().join(' ') ||
+            'No se pudo guardar el tratamiento.';
         return;
     }
     cerrarModal('modalTratamiento');
@@ -1603,6 +1614,7 @@ async function eliminarTratamiento(id) {
 
 async function abrirModalDetalleTratamiento(id = null) {
     editandoId.detalleTratamiento = id;
+    editandoId.tratamientoDetalleOriginal = null;
     document.getElementById('modalDetalleTratamientoTitulo').textContent = id ? 
     'Editar medicamento en tratamiento' : 'Nuevo medicamento en tratamiento';
     const fechaInput = document.getElementById('fechaDetalleTratamiento');
@@ -1610,46 +1622,108 @@ async function abrirModalDetalleTratamiento(id = null) {
         fechaInput.dataset.configurado = 'true';
         fechaInput.addEventListener('change', () => llenarSelectTratamientos(fechaInput.value));
     }
-    await llenarSelectMedicamentosDetalle();
+    await Promise.all([
+        cargarDatosTratamientosDetalle(),
+        llenarSelectMedicamentosDetalle()
+    ]);
     document.getElementById('cantidadEntregada').value = '';
     document.getElementById('indicacionDetalle').value = '';
     let item = null;
     if (id) {
         const respuesta = await fetch(`${API_LOCAL}/detalle-tratamiento/${id}/`, { headers: getAuthHeaders() });
         item = await respuesta.json();
-        await llenarSelectTratamientos(fechaLocalISO());
-        const tratamiento = window.tratamientosDetalle.find(registro => registro.id === item.id_tratamiento);
+        const tratamiento = window.tratamientosDetalle.find(registro =>
+            String(registro.id) === String(obtenerIdRelacionado(item.id_tratamiento)));
+        const atencionId = obtenerIdRelacionado(tratamiento?.id_atencion_cronico);
+        editandoId.tratamientoDetalleOriginal = obtenerIdRelacionado(item.id_tratamiento);
         fechaInput.value = tratamiento
-            ? window.atencionesDetalleTratamiento.find(atencion => atencion.id === tratamiento.id_atencion_cronico)?.fecha_atencion?.slice(0, 10)
+            ? fechaAtencionISO(window.atencionesDetalleTratamiento.find(atencion =>
+                String(atencion.id) === String(atencionId))
+                ?.fecha_atencion)
             : fechaLocalISO();
         document.getElementById('medicamentoDetalle').value = item.id_medicamento;
         document.getElementById('cantidadEntregada').value = item.cantidad_entregada;
         document.getElementById('indicacionDetalle').value = item.indicacion || '';
     }
-    await llenarSelectTratamientos(id ? fechaInput.value : null);
-    if (item) document.getElementById('tratamientoDetalle').value = item.id_tratamiento;
+    await llenarSelectTratamientos(
+        id ? fechaInput.value : null,
+        item
+            ? obtenerIdRelacionado(window.tratamientosDetalle.find(tratamiento =>
+                String(tratamiento.id) === String(obtenerIdRelacionado(item.id_tratamiento)))
+                ?.id_atencion_cronico)
+            : null
+    );
     abrirModal('modalDetalleTratamiento');
 }
 
 async function guardarDetalleTratamiento() {
+    const atencionId = Number(document.getElementById('tratamientoDetalle').value);
     const data = {
-        id_tratamiento: Number(document.getElementById('tratamientoDetalle').value),
         id_medicamento: Number(document.getElementById('medicamentoDetalle').value),
         cantidad_entregada: Number(document.getElementById('cantidadEntregada').value),
         indicacion: document.getElementById('indicacionDetalle').value.trim()
     };
     const error = document.getElementById('detalleTratamientoError');
-    if (!data.id_tratamiento || !data.id_medicamento || data.cantidad_entregada < 1 || !data.indicacion) {
-        error.textContent = 'Complete tratamiento, medicamento, cantidad e indicación.';
+    if (!atencionId || !data.id_medicamento || data.cantidad_entregada < 1 || !data.indicacion) {
+        error.textContent = 'Complete atención, medicamento, cantidad e indicación.';
         return;
     }
+
+    let tratamiento = null;
+    const tratamientoOriginalId = editandoId.tratamientoDetalleOriginal;
+    if (tratamientoOriginalId) {
+        tratamiento = window.tratamientosDetalle.find(item =>
+            String(item.id) === String(tratamientoOriginalId) &&
+            String(obtenerIdRelacionado(item.id_atencion_cronico)) === String(atencionId)
+        );
+    }
+    if (!tratamiento) {
+        tratamiento = window.tratamientosDetalle
+            .filter(item =>
+                String(obtenerIdRelacionado(item.id_atencion_cronico)) === String(atencionId)
+            )
+            .sort((a, b) => Number(a.id) - Number(b.id))[0];
+    }
+    let tratamientoCreadoId = null;
+    if (!tratamiento) {
+        const respuestaTratamiento = await fetch(`${API_LOCAL}/tratamiento/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+            body: JSON.stringify({
+                id_atencion_cronico: atencionId,
+                observaciones: ''
+            })
+        });
+        if (!respuestaTratamiento.ok) {
+            const errores = await respuestaTratamiento.json();
+            error.textContent = Object.values(errores).flat().join(' ') ||
+                'No se pudo crear el tratamiento para esta atención.';
+            return;
+        }
+        tratamiento = await respuestaTratamiento.json();
+        tratamientoCreadoId = tratamiento.id;
+        window.tratamientosDetalle.push(tratamiento);
+    }
+
     const id = editandoId.detalleTratamiento;
     const respuesta = await fetch(`${API_LOCAL}/detalle-tratamiento/${id ? `${id}/` : ''}`, {
         method: id ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-        body: JSON.stringify(data)
+        body: JSON.stringify({ ...data, id_tratamiento: tratamiento.id })
     });
     if (!respuesta.ok) {
+        if (tratamientoCreadoId) {
+            const limpieza = await fetch(`${API_LOCAL}/tratamiento/${tratamientoCreadoId}/`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
+            if (!limpieza.ok) {
+                console.error('No se pudo eliminar el tratamiento creado sin detalle.');
+            }
+            window.tratamientosDetalle = window.tratamientosDetalle.filter(item =>
+                String(item.id) !== String(tratamientoCreadoId)
+            );
+        }
         error.textContent = 'No se pudo guardar el medicamento del tratamiento.';
         return;
     }
