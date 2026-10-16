@@ -17,3 +17,7 @@ def get_mongo_client():
 
 def get_evaluaciones_collection():
     return get_mongo_client()["paciencare_db"]["evaluaciones_pacientes"]
+
+
+def get_reportes_collection():
+    return get_mongo_client()["paciencare_db"]["reportes_gerenciales"]

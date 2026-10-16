@@ -7,6 +7,16 @@ La API ofrece estos endpoints:
   generado por MongoDB.
 - `GET /api/evaluaciones/`: devuelve todas las evaluaciones sin el campo Mongo
   `_id`. Solo permite el acceso a usuarios autenticados con rol `Gerencia`.
+- `GET /api/reportes-gerenciales/`: calcula el resumen con las evaluaciones,
+  guarda/actualiza el período en `paciencare_db.reportes_gerenciales` y devuelve
+  el reporte. Solo permite el acceso a usuarios autenticados con rol `Gerencia`.
+
+El reporte calcula puntuaciones y patologías a partir de los campos
+`puntuacion` y `patologia_cronica`. Los indicadores opcionales se calculan
+únicamente cuando las evaluaciones contienen `atencion_medica`,
+`tiempo_espera_minutos`, `trato_personal` o `dudas_resueltas` /
+`dudas_resueltas_porcentaje`; si faltan, se devuelven como “Sin registros” o
+cero. No se insertan valores de ejemplo como métricas reales.
 
 Ambos endpoints requieren el token JWT en el encabezado:
 
