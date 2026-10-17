@@ -151,9 +151,56 @@ class EvaluacionesApiTests(SimpleTestCase):
         self.assertEqual(reporte["puntuacion_promedio"], 4.0)
         self.assertEqual(
             reporte["indicadores_clave"]["promedio_atencion_medica"],
-            "Sin registros",
+            "Satisfecho",
         )
         self.assertEqual(
             reporte["indicadores_clave"]["trato_personal_promedio"],
-            "Sin registros",
+            "Bueno",
+        )
+
+    def test_reporte_lee_respuestas_anidadas_y_aliases_moviles(self):
+        evaluaciones = [
+            {
+                "respuesta": {
+                    "overall_rating": 4,
+                    "r1_atencion_recibida": 5,
+                    "r2_trato_personal": "Excelente",
+                    "tiempo_espera_minutos": 12,
+                    "dudas_resueltas": "Sí",
+                },
+                "patologia_cronica": "Diabetes",
+                "paciente_id": 10,
+            },
+            {
+                "overall_rating": 3,
+                "respuestas": [
+                    {
+                        "pregunta": "¿Cuánto tiempo de espera tuvo?",
+                        "respuesta": 20,
+                    },
+                    {
+                        "pregunta": "¿Se resolvió alguna duda?",
+                        "respuesta": "No",
+                    },
+                    {
+                        "pregunta": "¿Cómo fue el trato recibido?",
+                        "respuesta": "Bueno",
+                    },
+                ],
+                "patologia_cronica": "Diabetes",
+                "paciente_id": 11,
+            },
+        ]
+
+        reporte = crear_reporte_gerencial(evaluaciones)
+        indicadores = reporte["indicadores_clave"]
+
+        self.assertEqual(reporte["puntuacion_promedio"], 3.5)
+        self.assertEqual(indicadores["promedio_atencion_medica"], "Satisfecho")
+        self.assertEqual(indicadores["tiempo_espera_promedio_minutos"], 16.0)
+        self.assertEqual(indicadores["trato_personal_promedio"], "Excelente")
+        self.assertEqual(indicadores["dudas_resueltas_porcentaje"], 50.0)
+        self.assertEqual(
+            reporte["desglose_patologias_cronicas"][0]["total_pacientes"],
+            2,
         )

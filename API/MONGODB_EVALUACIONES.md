@@ -12,11 +12,13 @@ La API ofrece estos endpoints:
   el reporte. Solo permite el acceso a usuarios autenticados con rol `Gerencia`.
 
 El reporte calcula puntuaciones y patologías a partir de los campos
-`puntuacion` y `patologia_cronica`. Los indicadores opcionales se calculan
-únicamente cuando las evaluaciones contienen `atencion_medica`,
-`tiempo_espera_minutos`, `trato_personal` o `dudas_resueltas` /
-`dudas_resueltas_porcentaje`; si faltan, se devuelven como “Sin registros” o
-cero. No se insertan valores de ejemplo como métricas reales.
+`puntuacion` / `overall_rating` / `r1_atencion_recibida` y
+`patologia_cronica`. También lee indicadores en campos anidados dentro de
+`respuesta` o `respuestas`, incluyendo arreglos de objetos `pregunta` /
+`respuesta`. Las etiquetas de atención y trato se derivan de la calificación
+general cuando no existe una respuesta específica. El tiempo de espera y el
+porcentaje de dudas resueltas se calculan solo si hay respuestas reales; si
+faltan, se devuelve cero. No se usan cifras de ejemplo como métricas reales.
 
 Ambos endpoints requieren el token JWT en el encabezado:
 
@@ -37,9 +39,13 @@ El cuerpo JSON se almacena tal como se recibe. Por ejemplo:
 ```json
 {
   "paciente_id": 123,
-  "respuestas": [
-    {"pregunta": "¿Cómo se siente?", "respuesta": "Bien"}
-  ],
+  "overall_rating": 5,
+  "respuesta": {
+    "r1_atencion_recibida": 5,
+    "trato_personal": "Excelente",
+    "tiempo_espera_minutos": 10,
+    "dudas_resueltas": "Sí"
+  },
   "fecha": "2026-10-15T12:00:00Z"
 }
 ```
