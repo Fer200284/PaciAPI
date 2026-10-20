@@ -178,6 +178,13 @@ DATABASES = {
         'PORT': '1433',
         'OPTIONS': DATABASE_OPTIONS,
     },
+    'DWTisma': {
+        'ENGINE': 'mssql',
+        'NAME': os.getenv('DB_NAME_DWTISMA', 'DWTisma'),
+        'HOST': os.getenv('DB_HOST_DWTISMA', 'sql-paci.database.windows.net'),
+        'PORT': '1433',
+        'OPTIONS': DATABASE_OPTIONS,
+    },
 }
 
 # Password validation
