@@ -178,10 +178,10 @@ DATABASES = {
         'PORT': '1433',
         'OPTIONS': DATABASE_OPTIONS,
     },
-    'DWTisma': {
+    'dwpaciencare': {
         'ENGINE': 'mssql',
-        'NAME': os.getenv('DB_NAME_DWTISMA', 'DWTisma'),
-        'HOST': os.getenv('DB_HOST_DWTISMA', 'sql-paci.database.windows.net'),
+        'NAME': os.getenv('DB_NAME_DWPACIENCARE', 'dwpaciencare'),
+        'HOST': os.getenv('DB_HOST_DWPACIENCARE', 'sql-paci.database.windows.net'),
         'PORT': '1433',
         'OPTIONS': DATABASE_OPTIONS,
     },
