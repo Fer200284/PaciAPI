@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from apps.catalogos.patient_scope import is_patient_user
 from apps.Seguridad.Usuarios.models import User
 
 
@@ -23,6 +24,28 @@ class UserSerializer(serializers.ModelSerializer):
             'is_active',
         )
         read_only_fields = ('id', 'is_staff', 'is_active')
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get('request')
+        if request and not request.user.is_authenticated and self.instance is None:
+            requested_role = attrs.get('rol', 'Paciente')
+            if requested_role != 'Paciente':
+                raise serializers.ValidationError({
+                    'rol': 'El registro público solo permite crear cuentas de paciente.'
+                })
+            attrs['rol'] = 'Paciente'
+        elif request and is_patient_user(request.user):
+            requested_role = attrs.get(
+                'rol',
+                getattr(self.instance, 'rol', 'Paciente'),
+            )
+            if requested_role != 'Paciente':
+                raise serializers.ValidationError({
+                    'rol': 'No puedes cambiar tu rol de paciente.'
+                })
+            attrs['rol'] = 'Paciente'
+        return attrs
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)

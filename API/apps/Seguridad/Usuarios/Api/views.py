@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 
+from apps.catalogos.patient_scope import is_patient_user
 from apps.Seguridad.Usuarios.models import User
 from .serializers import UserSerializer
 
@@ -11,6 +12,12 @@ class UserViewSet(viewsets.ModelViewSet):
 
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if is_patient_user(self.request.user):
+            return queryset.filter(pk=self.request.user.pk)
+        return queryset
 
     def get_permissions(self):
         if self.action == 'create':

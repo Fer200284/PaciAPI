@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from apps.catalogos.patient_scope import is_patient_user
 from ..models import Pacientes
 
 
@@ -21,3 +22,10 @@ class PacientesSerializer(serializers.ModelSerializer):
                 "No se puede guardar el paciente porque esta cédula ya pertenece a otro paciente."
             )
         return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get("request")
+        if request and is_patient_user(request.user):
+            attrs["usuario"] = request.user
+        return attrs

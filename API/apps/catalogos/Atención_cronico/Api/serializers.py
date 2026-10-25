@@ -1,12 +1,21 @@
 from rest_framework import serializers
+from apps.catalogos.patient_scope import PatientOwnedRelationsSerializerMixin
 from ..models import AtencionCronico
 
-class AtencionCronicoSerializer(serializers.ModelSerializer):
+class AtencionCronicoSerializer(
+    PatientOwnedRelationsSerializerMixin,
+    serializers.ModelSerializer,
+):
+    patient_owned_fields = {
+        "id_paciente_patologia": "id_paciente__usuario",
+    }
+
     class Meta:
         model = AtencionCronico
         fields = "__all__"
 
     def validate(self, attrs):
+        attrs = super().validate(attrs)
         fecha = attrs.get(
             "fecha_proxima_cita",
             getattr(self.instance, "fecha_proxima_cita", None),
