@@ -1787,6 +1787,46 @@ body.formulario-bloqueado {
     min-width: 0;
 }
 
+.form-hora-cita {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.form-hora-field {
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.form-hora-field legend {
+    margin-bottom: 6px;
+    color: var(--text-main);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.form-hora-field legend small {
+    color: var(--text-muted);
+    font-weight: 400;
+}
+
+.form-hora-cita label {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.form-hora-cita label > span {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.form-hora-cita .form-input {
+    padding: 10px 8px;
+}
+
 .form-field > span {
     color: var(--text-main);
     font-size: 0.82rem;

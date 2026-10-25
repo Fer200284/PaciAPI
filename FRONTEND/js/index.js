@@ -2116,7 +2116,8 @@ async function abrirModalCitasMedicas(modo, id = null) {
     document.getElementById('tallaAtencion').value = '';
     document.getElementById('presionAtencion').value = '';
     document.getElementById('fechaProximaCita').value = '';
-    document.getElementById('horaProximaCita').value = '';
+    prepararSelectorHoraProximaCita();
+    limpiarHoraProximaCita();
     delete document.getElementById('nomCitasMedicas').dataset.edicionRelacionId;
     await Promise.all([
         llenarSelectPacientesPatologias('nomCitasMedicas'),
@@ -2139,20 +2140,66 @@ async function abrirModalCitasMedicas(modo, id = null) {
         document.getElementById('tallaAtencion').value = item.talla || '';
         document.getElementById('presionAtencion').value = item.presion_arterial || '';
         document.getElementById('fechaProximaCita').value = item.fecha_proxima_cita || '';
-        document.getElementById('horaProximaCita').value = item.hora_proxima_cita
-            ? item.hora_proxima_cita.slice(0, 5)
-            : '';
+        establecerHoraProximaCita(item.hora_proxima_cita);
     }
     abrirModal('modalCitasMedicas');
+}
+
+function prepararSelectorHoraProximaCita() {
+    const minutos = document.getElementById('horaProximaCitaMinutos');
+    if (!minutos || minutos.options.length > 1) return;
+    for (let minuto = 0; minuto < 60; minuto += 1) {
+        const opcion = document.createElement('option');
+        opcion.value = String(minuto).padStart(2, '0');
+        opcion.textContent = opcion.value;
+        minutos.appendChild(opcion);
+    }
+}
+
+function limpiarHoraProximaCita() {
+    document.getElementById('horaProximaCitaHora').value = '';
+    document.getElementById('horaProximaCitaMinutos').value = '';
+    document.getElementById('horaProximaCitaPeriodo').value = '';
+}
+
+function establecerHoraProximaCita(valor) {
+    if (!valor) return;
+    const coincidencia = String(valor).match(/^(\d{1,2}):(\d{2})/);
+    if (!coincidencia) return;
+
+    const hora24 = Number(coincidencia[1]);
+    if (hora24 < 0 || hora24 > 23) return;
+    document.getElementById('horaProximaCitaHora').value = String(hora24 % 12 || 12);
+    document.getElementById('horaProximaCitaMinutos').value = coincidencia[2];
+    document.getElementById('horaProximaCitaPeriodo').value = hora24 >= 12 ? 'PM' : 'AM';
+}
+
+function obtenerHoraProximaCita() {
+    const hora = document.getElementById('horaProximaCitaHora').value;
+    const minutos = document.getElementById('horaProximaCitaMinutos').value;
+    const periodo = document.getElementById('horaProximaCitaPeriodo').value;
+    if (!hora && !minutos && !periodo) return { valor: null, incompleta: false };
+    if (!hora || !minutos || !periodo) return { valor: null, incompleta: true };
+
+    const hora12 = Number(hora);
+    const hora24 = (hora12 % 12) + (periodo === 'PM' ? 12 : 0);
+    return {
+        valor: `${String(hora24).padStart(2, '0')}:${minutos}:00`,
+        incompleta: false
+    };
 }
 
 async function guardarCitasMedicas() {
     const pacienteSeleccionado = document.getElementById('nomCitasMedicas');
     const relacionesSeleccionadas = relacionesAtencionPorPaciente[pacienteSeleccionado.value] || [];
     const fechaProximaCita = document.getElementById('fechaProximaCita').value;
-    const horaProximaCita = document.getElementById('horaProximaCita').value;
+    const horaProximaCita = obtenerHoraProximaCita();
     const errorCita = document.getElementById('CitasMedicasError');
-    if (horaProximaCita && !fechaProximaCita) {
+    if (horaProximaCita.incompleta) {
+        errorCita.textContent = 'Selecciona la hora, los minutos y AM o PM para la próxima cita.';
+        return;
+    }
+    if (horaProximaCita.valor && !fechaProximaCita) {
         errorCita.textContent = 'Selecciona la fecha de la próxima cita para guardar su hora.';
         return;
     }
@@ -2164,7 +2211,7 @@ async function guardarCitasMedicas() {
         talla: document.getElementById('tallaAtencion').value || null,
         presion_arterial: document.getElementById('presionAtencion').value.trim() || null,
         fecha_proxima_cita: fechaProximaCita || null,
-        hora_proxima_cita: horaProximaCita || null,
+        hora_proxima_cita: horaProximaCita.valor,
         asistio: document.getElementById('atendidaCita').value === 'true',
         consulta_especializada: document.getElementById('consultaEspecializada').value === 'true',
         observaciones: document.getElementById('motivo').value || ''

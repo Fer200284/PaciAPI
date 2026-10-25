@@ -1219,10 +1219,43 @@
                             <span>Fecha de próxima cita <small>(opcional)</small></span>
                             <input id="fechaProximaCita" class="form-input" type="date">
                         </label>
-                        <label class="form-field">
-                            <span>Hora de próxima cita <small>(opcional)</small></span>
-                            <input id="horaProximaCita" class="form-input" type="time">
-                        </label>
+                        <fieldset class="form-field form-hora-field">
+                            <legend>Hora de próxima cita <small>(opcional)</small></legend>
+                            <div class="form-hora-cita">
+                                <label>
+                                    <span>Hora</span>
+                                    <select id="horaProximaCitaHora" class="form-input">
+                                        <option value="">--</option>
+                                        <option value="1">01</option>
+                                        <option value="2">02</option>
+                                        <option value="3">03</option>
+                                        <option value="4">04</option>
+                                        <option value="5">05</option>
+                                        <option value="6">06</option>
+                                        <option value="7">07</option>
+                                        <option value="8">08</option>
+                                        <option value="9">09</option>
+                                        <option value="10">10</option>
+                                        <option value="11">11</option>
+                                        <option value="12">12</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    <span>Minutos</span>
+                                    <select id="horaProximaCitaMinutos" class="form-input">
+                                        <option value="">--</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    <span>AM/PM</span>
+                                    <select id="horaProximaCitaPeriodo" class="form-input">
+                                        <option value="">--</option>
+                                        <option value="AM">AM</option>
+                                        <option value="PM">PM</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </fieldset>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1482,6 +1515,6 @@
 
     <!-- Archivo JavaScript principal -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="js/index.js?v=20261025-2"></script>
+    <script src="js/index.js?v=20261025-3"></script>
 </body>
 </html
