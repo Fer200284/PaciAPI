@@ -23,6 +23,7 @@
     --border-radius: 8px;
     --transition: all 0.2s ease-in-out;
     --sidebar-width: 260px;
+    --topbar-height: 70px;
 }
 
 * {
@@ -228,24 +229,30 @@ body.formulario-bloqueado {
 
 /* Topbar */
 .topbar {
-    height: 70px;
+    height: var(--topbar-height);
+    min-height: var(--topbar-height);
+    flex: 0 0 var(--topbar-height);
     background: rgba(255, 255, 255, 0.92);
     border-bottom: 1px solid rgba(77, 163, 255, 0.16);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 30px;
+    padding: 0 48px;
 }
 
 .topbar-titulo {
-    font-size: 1.4rem;
+    font-size: 2rem;
     font-weight: 600;
     color: var(--login-blue-light);
 }
 
+.topbar-derecha span {
+    font-size: 1.1rem;
+}
+
 .estado-api {
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 1.1rem;
 }
 
 /* Contenido Dinámico */
@@ -1113,10 +1120,10 @@ body.formulario-bloqueado {
     ========================================== */
 .modal-overlay {
     position: fixed;
-    top: 70px;
+    top: var(--topbar-height);
     left: var(--sidebar-width);
     width: calc(100% - var(--sidebar-width));
-    height: calc(100% - 70px);
+    height: calc(100% - var(--topbar-height));
     background-color: #f5f8ff;
     display: flex;
     justify-content: stretch;
@@ -1692,6 +1699,7 @@ body.formulario-bloqueado {
 @media (max-width: 680px) {
     :root {
         --sidebar-width: 70px;
+        --topbar-height: 70px;
     }
 
     .sidebar {
@@ -1701,7 +1709,16 @@ body.formulario-bloqueado {
         display: none;
     }
     .topbar {
-        padding: 0 15px;
+        padding: 0 10px;
+    }
+    .topbar-titulo {
+        font-size: 1.15rem;
+    }
+    .topbar-derecha {
+        gap: 4px !important;
+    }
+    .topbar-derecha span {
+        font-size: 0.68rem;
     }
     .contenido {
         padding: 15px;
