@@ -487,11 +487,310 @@ async function cargarDashboard() {
         if (totalResultadosExamenes) totalResultadosExamenes.textContent = examenesCount;
         if (totalMedicamentos) totalMedicamentos.textContent = medicamentosCount;
 
+        cargarGraficosDashboard({
+            pacientes: safeArray(pacientes),
+            medicos: safeArray(medicos),
+            atenciones: safeArray(atenciones)
+        });
+
         setEstadoApi(true);
     } catch (error) {
         console.error('Error al conectar con la API en el dashboard:', error);
         setEstadoApi(false);
     }
+}
+
+const COLORES_GRAFICOS = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#64748b'];
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function crearElementoSvg(nombre, atributos = {}) {
+    const elemento = document.createElementNS(SVG_NS, nombre);
+    Object.entries(atributos).forEach(([clave, valor]) => elemento.setAttribute(clave, valor));
+    return elemento;
+}
+
+function mostrarEstadoGrafico(id, mensaje) {
+    const contenedor = document.getElementById(id);
+    if (!contenedor) return;
+    const texto = document.createElement('p');
+    texto.className = 'grafico-vacio';
+    texto.textContent = mensaje;
+    contenedor.replaceChildren(texto);
+}
+
+function renderizarGraficoDona(id, datos) {
+    const contenedor = document.getElementById(id);
+    if (!contenedor) return;
+    const valores = datos.filter(dato => Number.isFinite(dato.valor) && dato.valor > 0);
+    const total = valores.reduce((suma, dato) => suma + dato.valor, 0);
+    if (!total) {
+        mostrarEstadoGrafico(id, 'Sin datos suficientes para mostrar este gráfico.');
+        return;
+    }
+
+    const svg = crearElementoSvg('svg', {
+        class: 'grafico-dona',
+        viewBox: '0 0 180 180',
+        'aria-hidden': 'true'
+    });
+    const radio = 64;
+    const circunferencia = 2 * Math.PI * radio;
+    svg.appendChild(crearElementoSvg('circle', {
+        cx: 90, cy: 90, r: radio, fill: 'none', stroke: '#e8eef6', 'stroke-width': 22
+    }));
+
+    let desplazamiento = 0;
+    valores.forEach((dato, indice) => {
+        const longitud = dato.valor / total * circunferencia;
+        const segmento = crearElementoSvg('circle', {
+            cx: 90,
+            cy: 90,
+            r: radio,
+            fill: 'none',
+            stroke: COLORES_GRAFICOS[indice % COLORES_GRAFICOS.length],
+            'stroke-width': 22,
+            'stroke-dasharray': `${longitud} ${circunferencia - longitud}`,
+            'stroke-dashoffset': -desplazamiento,
+            transform: 'rotate(-90 90 90)'
+        });
+        svg.appendChild(segmento);
+        desplazamiento += longitud;
+    });
+
+    const textoTotal = crearElementoSvg('text', { x: 90, y: 88, class: 'grafico-dona-total' });
+    textoTotal.textContent = String(total);
+    svg.appendChild(textoTotal);
+    const etiquetaTotal = crearElementoSvg('text', { x: 90, y: 106, class: 'grafico-dona-etiqueta' });
+    etiquetaTotal.textContent = 'TOTAL';
+    svg.appendChild(etiquetaTotal);
+
+    const leyenda = document.createElement('ul');
+    leyenda.className = 'grafico-leyenda';
+    valores.forEach((dato, indice) => {
+        const elemento = document.createElement('li');
+        const punto = document.createElement('span');
+        punto.className = 'grafico-leyenda-punto';
+        punto.style.backgroundColor = COLORES_GRAFICOS[indice % COLORES_GRAFICOS.length];
+        const etiqueta = document.createElement('span');
+        etiqueta.textContent = dato.etiqueta;
+        const valor = document.createElement('span');
+        valor.className = 'grafico-leyenda-valor';
+        valor.textContent = String(dato.valor);
+        elemento.append(punto, etiqueta, valor);
+        leyenda.appendChild(elemento);
+    });
+
+    const layout = document.createElement('div');
+    layout.className = 'grafico-dona-layout';
+    layout.append(svg, leyenda);
+    contenedor.replaceChildren(layout);
+}
+
+function renderizarGraficoBarras(id, datos) {
+    const contenedor = document.getElementById(id);
+    if (!contenedor) return;
+    const valores = datos
+        .filter(dato => Number.isFinite(dato.valor) && dato.valor > 0)
+        .sort((a, b) => b.valor - a.valor)
+        .slice(0, 8);
+    if (!valores.length) {
+        mostrarEstadoGrafico(id, 'Sin datos suficientes para mostrar este gráfico.');
+        return;
+    }
+
+    const maximo = Math.max(...valores.map(dato => dato.valor));
+    const barras = document.createElement('div');
+    barras.className = 'grafico-barras';
+    valores.forEach((dato, indice) => {
+        const fila = document.createElement('div');
+        fila.className = 'grafico-barra';
+        const etiqueta = document.createElement('span');
+        etiqueta.className = 'grafico-barra-etiqueta';
+        etiqueta.textContent = dato.etiqueta;
+        etiqueta.title = dato.etiqueta;
+        const fondo = document.createElement('div');
+        fondo.className = 'grafico-barra-fondo';
+        const barra = document.createElement('div');
+        barra.className = 'grafico-barra-valor';
+        barra.style.width = `${dato.valor / maximo * 100}%`;
+        barra.style.backgroundColor = COLORES_GRAFICOS[indice % COLORES_GRAFICOS.length];
+        fondo.appendChild(barra);
+        const conteo = document.createElement('span');
+        conteo.className = 'grafico-barra-conteo';
+        conteo.textContent = String(dato.valor);
+        fila.append(etiqueta, fondo, conteo);
+        barras.appendChild(fila);
+    });
+    contenedor.replaceChildren(barras);
+}
+
+function renderizarGraficoLineas(id, datos) {
+    const contenedor = document.getElementById(id);
+    if (!contenedor) return;
+    if (!datos.some(dato => dato.valor > 0)) {
+        mostrarEstadoGrafico(id, 'Sin datos suficientes para mostrar este gráfico.');
+        return;
+    }
+
+    const ancho = 640;
+    const alto = 240;
+    const margen = { arriba: 18, derecha: 18, abajo: 36, izquierda: 38 };
+    const anchoUtil = ancho - margen.izquierda - margen.derecha;
+    const altoUtil = alto - margen.arriba - margen.abajo;
+    const maximo = Math.max(...datos.map(dato => dato.valor), 1);
+    const svg = crearElementoSvg('svg', {
+        class: 'grafico-linea',
+        viewBox: `0 0 ${ancho} ${alto}`,
+        role: 'img',
+        'aria-label': 'Atenciones mensuales de los últimos seis meses'
+    });
+
+    for (let linea = 0; linea <= 4; linea += 1) {
+        const y = margen.arriba + altoUtil * linea / 4;
+        svg.appendChild(crearElementoSvg('line', {
+            x1: margen.izquierda, y1: y, x2: ancho - margen.derecha, y2: y, class: 'grafico-linea-grid'
+        }));
+        const texto = crearElementoSvg('text', {
+            x: margen.izquierda - 8, y: y + 4, class: 'grafico-linea-texto', 'text-anchor': 'end'
+        });
+        texto.textContent = String(Math.round(maximo * (4 - linea) / 4));
+        svg.appendChild(texto);
+    }
+
+    const puntos = datos.map((dato, indice) => ({
+        x: margen.izquierda + anchoUtil * indice / Math.max(datos.length - 1, 1),
+        y: margen.arriba + altoUtil * (1 - dato.valor / maximo),
+        ...dato
+    }));
+    const trazo = crearElementoSvg('polyline', {
+        points: puntos.map(punto => `${punto.x},${punto.y}`).join(' '),
+        class: 'grafico-linea-trazo'
+    });
+    svg.appendChild(trazo);
+
+    puntos.forEach(punto => {
+        const circulo = crearElementoSvg('circle', {
+            cx: punto.x, cy: punto.y, r: 5, class: 'grafico-linea-punto'
+        });
+        const descripcion = crearElementoSvg('title');
+        descripcion.textContent = `${punto.etiqueta}: ${punto.valor} atenciones`;
+        circulo.appendChild(descripcion);
+        svg.appendChild(circulo);
+        const etiqueta = crearElementoSvg('text', {
+            x: punto.x, y: alto - 10, class: 'grafico-linea-texto', 'text-anchor': 'middle'
+        });
+        etiqueta.textContent = punto.etiqueta;
+        svg.appendChild(etiqueta);
+    });
+
+    contenedor.replaceChildren(svg);
+}
+
+function idDeRelacion(valor) {
+    if (valor && typeof valor === 'object') return valor.id ?? '';
+    return valor ?? '';
+}
+
+function datosAtencionesPorMes(atenciones) {
+    const conteos = new Map();
+    const mesActual = new Date();
+    for (let diferencia = 5; diferencia >= 0; diferencia -= 1) {
+        const fecha = new Date(mesActual.getFullYear(), mesActual.getMonth() - diferencia, 1);
+        const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
+        const etiqueta = new Intl.DateTimeFormat('es', { month: 'short' }).format(fecha);
+        conteos.set(clave, { etiqueta, valor: 0 });
+    }
+
+    atenciones.forEach(atencion => {
+        const fechaTexto = String(atencion.fecha_atencion || '');
+        const coincidencia = fechaTexto.match(/^(\d{4})-(\d{2})/);
+        if (!coincidencia) return;
+        const clave = `${coincidencia[1]}-${coincidencia[2]}`;
+        if (conteos.has(clave)) conteos.get(clave).valor += 1;
+    });
+    return [...conteos.values()];
+}
+
+function datosPacientesPorSexo(pacientes) {
+    let femenino = 0;
+    let masculino = 0;
+    let sinEspecificar = 0;
+    pacientes.forEach(paciente => {
+        const sexo = String(paciente.sexo || '').trim().toLowerCase();
+        if (sexo === 'f' || sexo === 'femenino') femenino += 1;
+        else if (sexo === 'm' || sexo === 'masculino') masculino += 1;
+        else sinEspecificar += 1;
+    });
+    return [
+        { etiqueta: 'Femenino', valor: femenino },
+        { etiqueta: 'Masculino', valor: masculino },
+        { etiqueta: 'Sin especificar', valor: sinEspecificar }
+    ];
+}
+
+function datosAsistencia(atenciones) {
+    let si = 0;
+    let no = 0;
+    atenciones.forEach(atencion => {
+        const valor = atencion.asistio;
+        if (valor === true || valor === 1 || ['true', '1', 'si', 'sí'].includes(String(valor).toLowerCase())) {
+            si += 1;
+        } else if (valor === false || valor === 0 || ['false', '0', 'no'].includes(String(valor).toLowerCase())) {
+            no += 1;
+        }
+    });
+    return [
+        { etiqueta: 'Asistió', valor: si },
+        { etiqueta: 'No asistió', valor: no }
+    ];
+}
+
+function cargarGraficosDashboard({ pacientes, medicos, atenciones }) {
+    renderizarGraficoDona('graficoPacientesSexo', datosPacientesPorSexo(pacientes));
+    renderizarGraficoDona('graficoAsistencia', datosAsistencia(atenciones));
+    renderizarGraficoLineas('graficoAtencionesMes', datosAtencionesPorMes(atenciones));
+
+    const atencionesPorMedico = new Map();
+    const medicosPorId = new Map(medicos.map(medico => [String(medico.id), medico]));
+    atenciones.forEach(atencion => {
+        const idMedico = String(idDeRelacion(atencion.id_medico));
+        const medico = medicosPorId.get(idMedico);
+        const nombre = medico
+            ? `${medico.nombre || ''} ${medico.apellidos || ''}`.trim()
+            : (idMedico ? `Médico #${idMedico}` : 'Sin médico');
+        atencionesPorMedico.set(nombre, (atencionesPorMedico.get(nombre) || 0) + 1);
+    });
+    renderizarGraficoBarras(
+        'graficoAtencionesMedico',
+        [...atencionesPorMedico].map(([etiqueta, valor]) => ({ etiqueta, valor }))
+    );
+
+    Promise.all([
+        fetchJsonOrThrow(`${API_LOCAL}/paciente-patologia/`, { headers: getAuthHeaders() }),
+        fetchJsonOrThrow(`${API_LOCAL}/patologias-cronicas/`, { headers: getAuthHeaders() })
+    ]).then(([relacionesRespuesta, patologiasRespuesta]) => {
+        const patologias = new Map(
+            safeArray(patologiasRespuesta).map(patologia => [String(patologia.id), patologia.nombre_patologia])
+        );
+        const pacientesPorPatologia = new Map();
+        safeArray(relacionesRespuesta).forEach(relacion => {
+            const patologiaId = String(idDeRelacion(relacion.id_patologia_cronica));
+            const idPaciente = idDeRelacion(relacion.id_paciente) || relacion.id;
+            if (idPaciente === null || idPaciente === undefined || idPaciente === '') return;
+            const pacienteId = String(idPaciente);
+            const nombre = patologias.get(patologiaId);
+            if (!nombre) return;
+            if (!pacientesPorPatologia.has(nombre)) pacientesPorPatologia.set(nombre, new Set());
+            pacientesPorPatologia.get(nombre).add(pacienteId);
+        });
+        renderizarGraficoBarras(
+            'graficoPatologias',
+            [...pacientesPorPatologia].map(([etiqueta, ids]) => ({ etiqueta, valor: ids.size }))
+        );
+    }).catch(error => {
+        console.error('No se pudieron cargar los datos del gráfico de patologías.', error);
+        mostrarEstadoGrafico('graficoPatologias', 'No se pudieron cargar los datos de patologías.');
+    });
 }
 
 // ==========================================
