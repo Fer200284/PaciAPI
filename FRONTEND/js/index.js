@@ -1648,7 +1648,7 @@ async function cargarCitasMedicas() {
                 <td>${textValue(c, 'peso') ? `${textValue(c, 'peso')} kg` : '-'}</td>
                 <td>${textValue(c, 'talla') ? `${textValue(c, 'talla')} cm` : '-'}</td>
                 <td>${textValue(c, 'presion_arterial') || '-'}</td>
-                <td>${formatDate(textValue(c, 'fecha_proxima_cita')) || '-'}</td>
+                <td>${formatDate(textValue(c, 'fecha_proxima_cita')) || '-'}${textValue(c, 'hora_proxima_cita') ? `<br>${textValue(c, 'hora_proxima_cita').slice(0, 5)}` : ''}</td>
                 <td>${isTrue(textValue(c, 'asistio')) ? '✔ Sí' : '❌ No'}</td>
                 <td>${isTrue(textValue(c, 'consulta_especializada')) ? '✔ Sí' : '❌ No'}</td>
                 <td>${textValue(c, 'observaciones') || '-'}</td>
@@ -2116,6 +2116,7 @@ async function abrirModalCitasMedicas(modo, id = null) {
     document.getElementById('tallaAtencion').value = '';
     document.getElementById('presionAtencion').value = '';
     document.getElementById('fechaProximaCita').value = '';
+    document.getElementById('horaProximaCita').value = '';
     delete document.getElementById('nomCitasMedicas').dataset.edicionRelacionId;
     await Promise.all([
         llenarSelectPacientesPatologias('nomCitasMedicas'),
@@ -2138,6 +2139,9 @@ async function abrirModalCitasMedicas(modo, id = null) {
         document.getElementById('tallaAtencion').value = item.talla || '';
         document.getElementById('presionAtencion').value = item.presion_arterial || '';
         document.getElementById('fechaProximaCita').value = item.fecha_proxima_cita || '';
+        document.getElementById('horaProximaCita').value = item.hora_proxima_cita
+            ? item.hora_proxima_cita.slice(0, 5)
+            : '';
     }
     abrirModal('modalCitasMedicas');
 }
@@ -2145,6 +2149,13 @@ async function abrirModalCitasMedicas(modo, id = null) {
 async function guardarCitasMedicas() {
     const pacienteSeleccionado = document.getElementById('nomCitasMedicas');
     const relacionesSeleccionadas = relacionesAtencionPorPaciente[pacienteSeleccionado.value] || [];
+    const fechaProximaCita = document.getElementById('fechaProximaCita').value;
+    const horaProximaCita = document.getElementById('horaProximaCita').value;
+    const errorCita = document.getElementById('CitasMedicasError');
+    if (horaProximaCita && !fechaProximaCita) {
+        errorCita.textContent = 'Selecciona la fecha de la próxima cita para guardar su hora.';
+        return;
+    }
     const data = {
         id_medico: document.getElementById('cdCitasMedicas').value ? 
         Number(document.getElementById('cdCitasMedicas').value) : null,
@@ -2152,7 +2163,8 @@ async function guardarCitasMedicas() {
         peso: document.getElementById('pesoAtencion').value || null,
         talla: document.getElementById('tallaAtencion').value || null,
         presion_arterial: document.getElementById('presionAtencion').value.trim() || null,
-        fecha_proxima_cita: document.getElementById('fechaProximaCita').value || null,
+        fecha_proxima_cita: fechaProximaCita || null,
+        hora_proxima_cita: horaProximaCita || null,
         asistio: document.getElementById('atendidaCita').value === 'true',
         consulta_especializada: document.getElementById('consultaEspecializada').value === 'true',
         observaciones: document.getElementById('motivo').value || ''

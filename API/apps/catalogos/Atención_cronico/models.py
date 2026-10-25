@@ -63,6 +63,12 @@ class AtencionCronico(models.Model):
       db_column="FechaProximaCita",
   )
 
+  hora_proxima_cita = models.TimeField(
+      blank=True,
+      null=True,
+      db_column="HoraProximaCita",
+  )
+
   asistio = models.BooleanField(
       default=True,
       db_column="Asistio",  # BIT NOT NULL DEFAULT 1
