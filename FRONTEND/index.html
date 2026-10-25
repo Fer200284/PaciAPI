@@ -171,6 +171,29 @@
                         <p>SISTEMA CLÍNICO PARA PACIENTES CRÓNICOS</p>
                     </div>
 
+                    <div class="dashboard-filtro-fechas" aria-label="Filtrar gráficos por fecha">
+                        <div>
+                            <h2>Filtrar gráficos de atenciones</h2>
+                            <p>Elige un rango de meses para actualizar solo los gráficos de atenciones.</p>
+                        </div>
+                        <label>
+                            Desde
+                            <input type="month" id="fechaInicioGraficos">
+                        </label>
+                        <label>
+                            Hasta
+                            <input type="month" id="fechaFinGraficos">
+                        </label>
+                        <div class="dashboard-filtro-acciones">
+                            <button class="btn btn-primario" type="button"
+                             onclick="aplicarFiltroFechasGraficos()">Aplicar</button>
+                            <button class="btn btn-secundario" type="button"
+                             onclick="limpiarFiltroFechasGraficos()">Limpiar</button>
+                        </div>
+                        <p id="estadoFiltroFechasGraficos" class="dashboard-filtro-estado"
+                         aria-live="polite"></p>
+                    </div>
+
                     <div class="dashboard-graficos" aria-label="Gráficos del dashboard">
                         <article class="dashboard-grafico">
                             <div class="dashboard-grafico-titulo">
@@ -207,7 +230,7 @@
                         <article class="dashboard-grafico dashboard-grafico-linea">
                             <div class="dashboard-grafico-titulo">
                                 <h2>Atenciones por mes</h2>
-                                <p>Últimos seis meses, incluyendo el mes actual</p>
+                                <p id="periodoGraficoAtenciones">Últimos seis meses, incluyendo el mes actual</p>
                             </div>
                             <div id="graficoAtencionesMes" class="dashboard-grafico-contenido"
                              role="img" aria-label="Gráfico de línea de atenciones por mes"></div>

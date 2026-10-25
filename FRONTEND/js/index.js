@@ -502,6 +502,8 @@ async function cargarDashboard() {
 
 const COLORES_GRAFICOS = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#64748b'];
 const SVG_NS = 'http://www.w3.org/2000/svg';
+let atencionesDashboard = [];
+let medicosDashboard = [];
 
 function crearElementoSvg(nombre, atributos = {}) {
     const elemento = document.createElementNS(SVG_NS, nombre);
@@ -602,8 +604,19 @@ function renderizarGraficoBarras(id, datos) {
     const barras = document.createElement('div');
     barras.className = 'grafico-barras';
     valores.forEach((dato, indice) => {
-        const fila = document.createElement('div');
+        const fila = document.createElement('button');
+        fila.type = 'button';
         fila.className = 'grafico-barra';
+        fila.setAttribute('aria-expanded', 'false');
+        fila.setAttribute('aria-label', `Mostrar nombre completo: ${dato.etiqueta}`);
+        fila.addEventListener('click', () => {
+            const expandida = fila.classList.toggle('grafico-barra-expandida');
+            fila.setAttribute('aria-expanded', String(expandida));
+            fila.setAttribute(
+                'aria-label',
+                `${expandida ? 'Ocultar' : 'Mostrar'} nombre completo: ${dato.etiqueta}`
+            );
+        });
         const etiqueta = document.createElement('span');
         etiqueta.className = 'grafico-barra-etiqueta';
         etiqueta.textContent = dato.etiqueta;
@@ -642,7 +655,7 @@ function renderizarGraficoLineas(id, datos) {
         class: 'grafico-linea',
         viewBox: `0 0 ${ancho} ${alto}`,
         role: 'img',
-        'aria-label': 'Atenciones mensuales de los últimos seis meses'
+        'aria-label': 'Atenciones mensuales según el período seleccionado'
     });
 
     for (let linea = 0; linea <= 4; linea += 1) {
@@ -691,13 +704,27 @@ function idDeRelacion(valor) {
     return valor ?? '';
 }
 
-function datosAtencionesPorMes(atenciones) {
+function datosAtencionesPorMes(atenciones, inicio = '', fin = '') {
     const conteos = new Map();
-    const mesActual = new Date();
-    for (let diferencia = 5; diferencia >= 0; diferencia -= 1) {
-        const fecha = new Date(mesActual.getFullYear(), mesActual.getMonth() - diferencia, 1);
+    let fechaInicio;
+    let fechaFin;
+    if (inicio && fin) {
+        const [anioInicio, mesInicio] = inicio.split('-').map(Number);
+        const [anioFin, mesFin] = fin.split('-').map(Number);
+        fechaInicio = new Date(anioInicio, mesInicio - 1, 1);
+        fechaFin = new Date(anioFin, mesFin - 1, 1);
+    } else {
+        fechaFin = new Date();
+        fechaFin = new Date(fechaFin.getFullYear(), fechaFin.getMonth(), 1);
+        fechaInicio = new Date(fechaFin.getFullYear(), fechaFin.getMonth() - 5, 1);
+    }
+
+    for (const fecha = new Date(fechaInicio); fecha <= fechaFin; fecha.setMonth(fecha.getMonth() + 1)) {
         const clave = `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}`;
-        const etiqueta = new Intl.DateTimeFormat('es', { month: 'short' }).format(fecha);
+        const nombreMes = new Intl.DateTimeFormat('es', { month: 'short' }).format(fecha);
+        const etiqueta = inicio && fin
+            ? `${nombreMes} '${String(fecha.getFullYear()).slice(-2)}`
+            : nombreMes;
         conteos.set(clave, { etiqueta, valor: 0 });
     }
 
@@ -746,24 +773,10 @@ function datosAsistencia(atenciones) {
 }
 
 function cargarGraficosDashboard({ pacientes, medicos, atenciones }) {
+    atencionesDashboard = atenciones;
+    medicosDashboard = medicos;
     renderizarGraficoDona('graficoPacientesSexo', datosPacientesPorSexo(pacientes));
-    renderizarGraficoDona('graficoAsistencia', datosAsistencia(atenciones));
-    renderizarGraficoLineas('graficoAtencionesMes', datosAtencionesPorMes(atenciones));
-
-    const atencionesPorMedico = new Map();
-    const medicosPorId = new Map(medicos.map(medico => [String(medico.id), medico]));
-    atenciones.forEach(atencion => {
-        const idMedico = String(idDeRelacion(atencion.id_medico));
-        const medico = medicosPorId.get(idMedico);
-        const nombre = medico
-            ? `${medico.nombre || ''} ${medico.apellidos || ''}`.trim()
-            : (idMedico ? `Médico #${idMedico}` : 'Sin médico');
-        atencionesPorMedico.set(nombre, (atencionesPorMedico.get(nombre) || 0) + 1);
-    });
-    renderizarGraficoBarras(
-        'graficoAtencionesMedico',
-        [...atencionesPorMedico].map(([etiqueta, valor]) => ({ etiqueta, valor }))
-    );
+    actualizarGraficosAtenciones(atenciones, '', '');
 
     Promise.all([
         fetchJsonOrThrow(`${API_LOCAL}/paciente-patologia/`, { headers: getAuthHeaders() }),
@@ -791,6 +804,65 @@ function cargarGraficosDashboard({ pacientes, medicos, atenciones }) {
         console.error('No se pudieron cargar los datos del gráfico de patologías.', error);
         mostrarEstadoGrafico('graficoPatologias', 'No se pudieron cargar los datos de patologías.');
     });
+}
+
+function actualizarGraficosAtenciones(atenciones, inicio, fin) {
+    renderizarGraficoDona('graficoAsistencia', datosAsistencia(atenciones));
+    renderizarGraficoLineas('graficoAtencionesMes', datosAtencionesPorMes(atenciones, inicio, fin));
+
+    const atencionesPorMedico = new Map();
+    const medicosPorId = new Map(medicosDashboard.map(medico => [String(medico.id), medico]));
+    atenciones.forEach(atencion => {
+        const idMedico = String(idDeRelacion(atencion.id_medico));
+        const medico = medicosPorId.get(idMedico);
+        const nombre = medico
+            ? `${medico.nombre || ''} ${medico.apellidos || ''}`.trim()
+            : (idMedico ? `Médico #${idMedico}` : 'Sin médico');
+        atencionesPorMedico.set(nombre, (atencionesPorMedico.get(nombre) || 0) + 1);
+    });
+    renderizarGraficoBarras(
+        'graficoAtencionesMedico',
+        [...atencionesPorMedico].map(([etiqueta, valor]) => ({ etiqueta, valor }))
+    );
+}
+
+function aplicarFiltroFechasGraficos() {
+    const inicio = document.getElementById('fechaInicioGraficos')?.value || '';
+    const fin = document.getElementById('fechaFinGraficos')?.value || '';
+    const estado = document.getElementById('estadoFiltroFechasGraficos');
+    if (!inicio || !fin) {
+        if (estado) estado.textContent = 'Selecciona el mes inicial y el mes final.';
+        return;
+    }
+    if (inicio > fin) {
+        if (estado) estado.textContent = 'El mes inicial no puede ser posterior al mes final.';
+        return;
+    }
+    const [anioInicio, mesInicio] = inicio.split('-').map(Number);
+    const [anioFin, mesFin] = fin.split('-').map(Number);
+    const cantidadMeses = (anioFin - anioInicio) * 12 + mesFin - mesInicio + 1;
+    if (cantidadMeses > 12) {
+        if (estado) estado.textContent = 'Elige un rango máximo de 12 meses para que el gráfico se pueda leer bien.';
+        return;
+    }
+
+    const atencionesFiltradas = atencionesDashboard.filter(atencion => {
+        const fecha = String(atencion.fecha_atencion || '').match(/^(\d{4}-\d{2})/);
+        return fecha && fecha[1] >= inicio && fecha[1] <= fin;
+    });
+    actualizarGraficosAtenciones(atencionesFiltradas, inicio, fin);
+    document.getElementById('periodoGraficoAtenciones').textContent = `Del ${inicio} al ${fin}`;
+    if (estado) estado.textContent = `Mostrando atenciones de ${inicio} a ${fin}.`;
+}
+
+function limpiarFiltroFechasGraficos() {
+    document.getElementById('fechaInicioGraficos').value = '';
+    document.getElementById('fechaFinGraficos').value = '';
+    const estado = document.getElementById('estadoFiltroFechasGraficos');
+    if (estado) estado.textContent = '';
+    document.getElementById('periodoGraficoAtenciones').textContent =
+        'Últimos seis meses, incluyendo el mes actual';
+    actualizarGraficosAtenciones(atencionesDashboard, '', '');
 }
 
 // ==========================================

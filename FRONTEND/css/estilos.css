@@ -383,6 +383,60 @@ body.formulario-bloqueado {
     text-align: center;
 }
 
+.dashboard-filtro-fechas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 14px;
+    margin-top: 20px;
+    padding: 18px 20px;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+}
+
+.dashboard-filtro-fechas > div:first-child {
+    flex: 1 1 100%;
+}
+
+.dashboard-filtro-fechas h2 {
+    color: var(--text-main);
+    font-size: 0.98rem;
+}
+
+.dashboard-filtro-fechas p {
+    margin-top: 4px;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.dashboard-filtro-fechas label {
+    display: grid;
+    gap: 5px;
+    color: var(--text-main);
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.dashboard-filtro-fechas input {
+    min-height: 38px;
+    padding: 7px 9px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    color: var(--text-main);
+    font: inherit;
+}
+
+.dashboard-filtro-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.dashboard-filtro-estado {
+    flex: 1 1 100%;
+}
+
 .grafico-dona-layout {
     width: 100%;
     display: flex;
@@ -448,6 +502,26 @@ body.formulario-bloqueado {
     grid-template-columns: minmax(90px, 0.8fr) minmax(60px, 2fr) 32px;
     align-items: center;
     gap: 10px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.grafico-barra:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+.grafico-barra-expandida .grafico-barra-etiqueta {
+    grid-column: 1 / -1;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 
 .grafico-barra-etiqueta {
@@ -1903,6 +1977,19 @@ body.formulario-bloqueado {
     }
     .dashboard-grafico {
         padding: 16px;
+    }
+    .dashboard-filtro-fechas {
+        align-items: stretch;
+        padding: 14px;
+    }
+    .dashboard-filtro-fechas label {
+        flex: 1 1 125px;
+    }
+    .dashboard-filtro-fechas input {
+        width: 100%;
+    }
+    .dashboard-filtro-acciones {
+        width: 100%;
     }
     .grafico-dona-layout {
         gap: 14px;
