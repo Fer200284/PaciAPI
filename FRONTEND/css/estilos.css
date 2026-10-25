@@ -1113,12 +1113,10 @@ body.formulario-bloqueado {
     ========================================== */
 .modal-overlay {
     position: fixed;
-    top: 0;
+    top: 70px;
     left: var(--sidebar-width);
-    right: 0;
-    width: auto;
-    height: 100vh;
-    height: 100dvh;
+    width: calc(100% - var(--sidebar-width));
+    height: calc(100% - 70px);
     background-color: #f5f8ff;
     display: flex;
     justify-content: stretch;
