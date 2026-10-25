@@ -838,14 +838,6 @@ function aplicarFiltroFechasGraficos() {
         if (estado) estado.textContent = 'El mes inicial no puede ser posterior al mes final.';
         return;
     }
-    const [anioInicio, mesInicio] = inicio.split('-').map(Number);
-    const [anioFin, mesFin] = fin.split('-').map(Number);
-    const cantidadMeses = (anioFin - anioInicio) * 12 + mesFin - mesInicio + 1;
-    if (cantidadMeses > 12) {
-        if (estado) estado.textContent = 'Elige un rango máximo de 12 meses para que el gráfico se pueda leer bien.';
-        return;
-    }
-
     const atencionesFiltradas = atencionesDashboard.filter(atencion => {
         const fecha = String(atencion.fecha_atencion || '').match(/^(\d{4}-\d{2})/);
         return fecha && fecha[1] >= inicio && fecha[1] <= fin;

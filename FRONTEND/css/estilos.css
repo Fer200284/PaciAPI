@@ -387,6 +387,7 @@ body.formulario-bloqueado {
     display: flex;
     flex-wrap: wrap;
     align-items: end;
+    justify-content: center;
     gap: 14px;
     margin-top: 20px;
     padding: 18px 20px;
@@ -397,6 +398,7 @@ body.formulario-bloqueado {
 
 .dashboard-filtro-fechas > div:first-child {
     flex: 1 1 100%;
+    text-align: center;
 }
 
 .dashboard-filtro-fechas h2 {
@@ -430,11 +432,13 @@ body.formulario-bloqueado {
 .dashboard-filtro-acciones {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 8px;
 }
 
 .dashboard-filtro-estado {
     flex: 1 1 100%;
+    text-align: center;
 }
 
 .grafico-dona-layout {
