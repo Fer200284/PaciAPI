@@ -434,6 +434,17 @@ function formatDateTime(value) {
     return `${partes.year}-${partes.month}-${partes.day} ${partes.hour}:${partes.minute}`;
 }
 
+function formatHoraAmPm(value) {
+    if (!value) return '';
+    const coincidencia = String(value).match(/^(\d{1,2}):(\d{2})/);
+    if (!coincidencia) return value;
+    const hora24 = Number(coincidencia[1]);
+    if (hora24 < 0 || hora24 > 23) return value;
+    const periodo = hora24 >= 12 ? 'PM' : 'AM';
+    const hora12 = hora24 % 12 || 12;
+    return `${String(hora12).padStart(2, '0')}:${coincidencia[2]} ${periodo}`;
+}
+
 function calcularEdad(fechaNacimiento) {
     if (!fechaNacimiento) return '-';
     const nacimiento = new Date(`${fechaNacimiento}T00:00:00`);
@@ -1648,7 +1659,7 @@ async function cargarCitasMedicas() {
                 <td>${textValue(c, 'peso') ? `${textValue(c, 'peso')} kg` : '-'}</td>
                 <td>${textValue(c, 'talla') ? `${textValue(c, 'talla')} cm` : '-'}</td>
                 <td>${textValue(c, 'presion_arterial') || '-'}</td>
-                <td>${formatDate(textValue(c, 'fecha_proxima_cita')) || '-'}${textValue(c, 'hora_proxima_cita') ? `<br>${textValue(c, 'hora_proxima_cita').slice(0, 5)}` : ''}</td>
+                <td>${formatDate(textValue(c, 'fecha_proxima_cita')) || '-'}${textValue(c, 'hora_proxima_cita') ? `<br>${formatHoraAmPm(textValue(c, 'hora_proxima_cita'))}` : ''}</td>
                 <td>${isTrue(textValue(c, 'asistio')) ? '✔ Sí' : '❌ No'}</td>
                 <td>${isTrue(textValue(c, 'consulta_especializada')) ? '✔ Sí' : '❌ No'}</td>
                 <td>${textValue(c, 'observaciones') || '-'}</td>
