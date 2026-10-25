@@ -366,7 +366,7 @@ body.formulario-bloqueado {
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
     box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    overflow: hidden;
+    overflow: clip;
     display: flex;
     flex-direction: column;
 }
