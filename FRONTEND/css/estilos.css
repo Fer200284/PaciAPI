@@ -375,9 +375,9 @@ body.formulario-bloqueado {
     width: 100%;
     min-width: 0;
     overflow-x: auto;
-    overflow-y: hidden;
-    max-height: none;
+    overflow-y: auto;
     height: auto;
+    max-height: calc(100dvh - var(--topbar-height) - 110px);
     scrollbar-width: thin;
     scrollbar-color: #7892ad #e7edf5;
     -ms-overflow-style: auto;
@@ -401,8 +401,8 @@ body.formulario-bloqueado {
 .tabla-scroll-patologias-cronicas {
     width: 100%;
     overflow-x: auto;
-    overflow-y: hidden;
-    max-height: none;
+    overflow-y: auto;
+    max-height: calc(100dvh - var(--topbar-height) - 110px);
 }
 
 .tabla-scroll-pacientes-patologias > #tablaPacientesPatologias,
@@ -506,8 +506,8 @@ body.formulario-bloqueado {
 
 .tabla-contenedor > .tabla-scroll {
     overflow-x: auto;
-    overflow-y: hidden;
-    max-height: none;
+    overflow-y: auto;
+    max-height: calc(100dvh - var(--topbar-height) - 110px);
     height: auto;
 }
 
@@ -1722,6 +1722,12 @@ body.formulario-bloqueado {
     }
     .contenido {
         padding: 15px;
+    }
+    .tabla-scroll,
+    .tabla-contenedor > .tabla-scroll,
+    .tabla-scroll-pacientes-patologias,
+    .tabla-scroll-patologias-cronicas {
+        max-height: calc(100dvh - var(--topbar-height) - 160px);
     }
     .buscador {
         flex: 1 1 auto;
