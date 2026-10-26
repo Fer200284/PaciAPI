@@ -330,6 +330,9 @@ function cargarDatosSeccion(seccionId) {
         case 'usuarios':
             cargarUsuarios();
             break;
+        case 'invitacionesGerencia':
+            cargarCodigosGerencia();
+            break;
     }
 }
 
@@ -2831,7 +2834,6 @@ async function cargarUsuarios() {
             `;
             tbody.appendChild(tr);
         });
-        await cargarCodigosGerencia();
     } catch (error) {
         if (cargando) cargando.textContent = '❌ Error al cargar usuarios.';
         console.error('Error al cargar usuarios:', error);
