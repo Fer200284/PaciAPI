@@ -1,8 +1,4 @@
-import secrets
-from datetime import timedelta
-
 from django.utils import timezone
-from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -15,23 +11,11 @@ from apps.catalogos.Detalle_Tratamiento.models import DetalleTratamiento
 from apps.catalogos.Pacientes.models import Pacientes
 from apps.catalogos.Resultado_Examenes.models import ResultadosExamenes
 from apps.catalogos.Solicitud_Examenes.models import SolicitudDeExamenes
-from apps.Seguridad.Usuarios.models import GerenciaInvitationCode, User
+from apps.Seguridad.Usuarios.models import User
 from .serializers import (
-    GerenciaInvitationCodeSerializer,
     MobileSummarySerializer,
     UserSerializer,
 )
-
-
-GERENCIA_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-
-
-def is_administrator(user):
-    return (
-        user.is_authenticated
-        and getattr(user, 'rol', None) == User.Roles.ADMINISTRADOR
-    )
-
 
 class UserViewSet(viewsets.ModelViewSet):
 
@@ -61,52 +45,6 @@ class UserViewSet(viewsets.ModelViewSet):
     def me(self, request):
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
-
-    @action(
-        detail=False,
-        methods=['get', 'post'],
-        permission_classes=[IsAuthenticated],
-        url_path='invitaciones-gerencia',
-    )
-    def invitaciones_gerencia(self, request):
-        if not is_administrator(request.user):
-            raise PermissionDenied(
-                'Solo Administrador puede gestionar invitaciones de Gerencia.'
-            )
-
-        if request.method == 'GET':
-            invitations = GerenciaInvitationCode.objects.select_related(
-                'created_by',
-                'used_by',
-            )
-            serializer = GerenciaInvitationCodeSerializer(
-                invitations,
-                many=True,
-            )
-            return Response(serializer.data)
-
-        now = timezone.now()
-        for _ in range(5):
-            code = ''.join(
-                secrets.choice(GERENCIA_CODE_ALPHABET)
-                for _ in range(16)
-            )
-            if GerenciaInvitationCode.objects.filter(code=code).exists():
-                continue
-            invitation = GerenciaInvitationCode.objects.create(
-                code=code,
-                created_by=request.user,
-                expires_at=now + timedelta(hours=24),
-            )
-            serializer = GerenciaInvitationCodeSerializer(invitation)
-            return Response(
-                serializer.data,
-                status=status.HTTP_201_CREATED,
-            )
-
-        raise ValidationError(
-            'No se pudo generar un código único. Intente nuevamente.'
-        )
 
     @action(
         detail=False,

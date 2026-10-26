@@ -1,5 +1,5 @@
 from contextlib import nullcontext
-from datetime import date, timedelta
+from datetime import date
 from importlib import import_module
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -13,7 +13,6 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from apps.Seguridad.Usuarios.Api.serializers import UserSerializer
 from apps.Seguridad.Usuarios.Api.views import UserViewSet
-from apps.Seguridad.Usuarios.models import GerenciaInvitationCode
 from apps.catalogos.patient_scope import (
     PatientOwnedRelationsSerializerMixin,
     PatientScopedViewSetMixin,
@@ -441,32 +440,15 @@ class MobileSummaryTests(SimpleTestCase):
         self.assertEqual(response.status_code, 403)
 
 
-class GerenciaInvitationTests(SimpleTestCase):
-    @patch("apps.Seguridad.Usuarios.Api.serializers.GerenciaInvitationCode.objects")
-    def test_public_gerencia_registration_requires_a_valid_invitation(self, invitations):
-        invitations.filter.return_value.first.return_value = None
-        serializer = UserSerializer(
-            context={
-                "request": SimpleNamespace(
-                    user=SimpleNamespace(is_authenticated=False)
-                )
-            }
-        )
-
-        with self.assertRaises(ValidationError) as error:
-            serializer.validate({
-                "username": "gerencia",
-                "password": "secure-password",
-                "rol": "Gerencia",
-                "codigo_autorizacion": "ADMIN-99",
-            })
-
-        self.assertIn("codigo_autorizacion", error.exception.detail)
-
-    @patch("apps.Seguridad.Usuarios.Api.serializers.GerenciaInvitationCode.objects")
-    def test_public_gerencia_registration_accepts_valid_invitation(self, invitations):
-        invitation = SimpleNamespace(pk=8)
-        invitations.filter.return_value.first.return_value = invitation
+class GerenciaAccountRegistrationTests(SimpleTestCase):
+    @patch("apps.Seguridad.Usuarios.Api.serializers.transaction.atomic")
+    @patch("apps.Seguridad.Usuarios.Api.serializers.User")
+    def test_public_gerencia_registration_creates_account_without_invitation(
+        self,
+        user_model,
+        atomic,
+    ):
+        atomic.return_value = nullcontext()
         serializer = UserSerializer(
             context={
                 "request": SimpleNamespace(
@@ -479,118 +461,16 @@ class GerenciaInvitationTests(SimpleTestCase):
             "username": "gerencia",
             "password": "secure-password",
             "rol": "Gerencia",
-            "codigo_autorizacion": "abcd1234",
             "nombre_completo": "Carlos Mendoza",
         })
 
-        self.assertEqual(attrs["rol"], "Gerencia")
-        self.assertEqual(attrs["first_name"], "Carlos Mendoza")
-        self.assertEqual(attrs["nombre_completo"], "Carlos Mendoza")
-        self.assertEqual(attrs["_gerencia_invitation_id"], invitation.pk)
-        invitations.filter.assert_called_once()
+        created_user = serializer.create(attrs)
 
-    def test_invitation_is_available_only_before_expiration_and_use(self):
-        current_time = timezone.now()
-        invitation = GerenciaInvitationCode(
-            code="ABCDEFGHIJKLMNOP",
-            expires_at=current_time + timedelta(hours=1),
-        )
-
-        self.assertTrue(invitation.is_available)
-        invitation.used_at = current_time
-        self.assertFalse(invitation.is_available)
-        invitation.used_at = None
-
-    @patch("apps.Seguridad.Usuarios.Api.views.GerenciaInvitationCode.objects")
-    def test_only_administrator_can_generate_gerencia_invitation(self, invitations):
-        admin = SimpleNamespace(
-            is_authenticated=True,
-            rol="Administrador",
-            pk=1,
-            username="admin",
-        )
-        created = SimpleNamespace(
-            pk=2,
-            code="ABCDEFGHIJKLMNOP",
-            estado="Disponible",
-            created_at=timezone.now(),
-            expires_at=timezone.now() + timedelta(hours=24),
-            used_at=None,
-            created_by=admin,
-            used_by=None,
-        )
-        invitations.filter.return_value.exists.return_value = False
-        invitations.create.return_value = created
-        request = APIRequestFactory().post(
-            "/api/usuarios/invitaciones-gerencia/",
-            {},
-            format="json",
-        )
-        force_authenticate(request, user=admin)
-
-        response = UserViewSet.as_view({
-            "post": "invitaciones_gerencia",
-        })(request)
-
-        self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data["code"], created.code)
-        self.assertEqual(len(invitations.create.call_args.kwargs["code"]), 16)
-        self.assertEqual(
-            invitations.create.call_args.kwargs["expires_at"].date(),
-            (timezone.now() + timedelta(hours=24)).date(),
-        )
-
-    @patch("apps.Seguridad.Usuarios.Api.views.GerenciaInvitationCode.objects")
-    def test_gerencia_cannot_generate_gerencia_invitation(self, invitations):
-        gerencia = SimpleNamespace(
-            is_authenticated=True,
+        self.assertIs(created_user, user_model.return_value)
+        user_model.assert_called_once_with(
+            username="gerencia",
             rol="Gerencia",
-            pk=2,
+            first_name="Carlos Mendoza",
         )
-        request = APIRequestFactory().post(
-            "/api/usuarios/invitaciones-gerencia/",
-            {},
-            format="json",
-        )
-        force_authenticate(request, user=gerencia)
-
-        response = UserViewSet.as_view({
-            "post": "invitaciones_gerencia",
-        })(request)
-
-        self.assertEqual(response.status_code, 403)
-        invitations.create.assert_not_called()
-
-    @patch("apps.Seguridad.Usuarios.Api.serializers.transaction.atomic")
-    @patch("apps.Seguridad.Usuarios.Api.serializers.User")
-    @patch("apps.Seguridad.Usuarios.Api.serializers.GerenciaInvitationCode.objects")
-    def test_gerencia_registration_consumes_invitation_once(
-        self,
-        invitations,
-        user_model,
-        atomic,
-    ):
-        atomic.return_value = nullcontext()
-        invitation = SimpleNamespace(
-            is_available=True,
-            used_at=None,
-            used_by=None,
-            save=MagicMock(),
-        )
-        invitations.select_for_update.return_value.get.return_value = invitation
-        created_user = user_model.return_value
-        serializer = UserSerializer()
-
-        serializer.create({
-            "username": "gerencia",
-            "rol": "Gerencia",
-            "password": "secure-password",
-            "_gerencia_invitation_id": 8,
-        })
-
-        user_model.assert_called_once_with(username="gerencia", rol="Gerencia")
-        self.assertIsNotNone(invitation.used_at)
-        self.assertIs(invitation.used_by, created_user)
-        invitation.save.assert_called_once_with(
-            update_fields=("used_at", "used_by")
-        )
+        created_user.set_password.assert_called_once_with("secure-password")
+        self.assertNotIn("codigo_autorizacion", serializer.fields)
