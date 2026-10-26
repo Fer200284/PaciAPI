@@ -657,6 +657,32 @@
                 <section id="usuarios" class="seccion">
                     <div class="tabla-contenedor">
                         <div class="tabla-cabecera">
+                            <h2>Invitaciones de Gerencia</h2>
+                            <button class="btn btn-primario"
+                            id="generarCodigoGerenciaBtn"
+                            onclick="generarCodigoGerencia()">+ Generar código</button>
+                        </div>
+                        <p class="campo-ayuda">Entrega el código manualmente. Es de un solo uso y vence en 24 horas.</p>
+                        <p id="codigoGerenciaResultado" role="status"></p>
+                        <div class="cargando" id="cargandoCodigosGerencia">Cargando códigos...</div>
+                        <div class="tabla-scroll tabla-scroll-general">
+                            <table class="tabla" id="tablaCodigosGerencia">
+                                <thead>
+                                    <tr>
+                                        <th>Código</th>
+                                        <th>Estado</th>
+                                        <th>Creado por</th>
+                                        <th>Creación</th>
+                                        <th>Vencimiento</th>
+                                        <th>Usado por</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bodyCodigosGerencia"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="tabla-contenedor">
+                        <div class="tabla-cabecera">
                             <input type="text" 
                             id="buscarUsuarios" 
                             class="buscador" 
@@ -1523,6 +1549,6 @@
 
     <!-- Archivo JavaScript principal -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="js/index.js?v=20261025-4"></script>
+    <script src="js/index.js?v=20261025-6"></script>
 </body>
 </html

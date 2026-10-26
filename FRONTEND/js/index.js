@@ -2807,6 +2807,9 @@ async function cargarUsuarios() {
 
     try {
         const respuesta = await fetch(`${API_LOCAL}/usuarios/`, { headers: getAuthHeaders() });
+        if (!respuesta.ok) {
+            throw new Error(`API respondió ${respuesta.status} al cargar usuarios.`);
+        }
         const data = await respuesta.json();
         const usuarios = safeArray(data);
         if (cargando) cargando.style.display = 'none';
@@ -2828,8 +2831,86 @@ async function cargarUsuarios() {
             `;
             tbody.appendChild(tr);
         });
+        await cargarCodigosGerencia();
     } catch (error) {
         if (cargando) cargando.textContent = '❌ Error al cargar usuarios.';
+        console.error('Error al cargar usuarios:', error);
+    }
+}
+
+async function cargarCodigosGerencia() {
+    const cargando = document.getElementById('cargandoCodigosGerencia');
+    const tbody = document.getElementById('bodyCodigosGerencia');
+    if (cargando) cargando.style.display = 'block';
+    if (tbody) tbody.replaceChildren();
+
+    try {
+        const respuesta = await fetch(
+            `${API_LOCAL}/usuarios/invitaciones-gerencia/`,
+            { headers: getAuthHeaders(), cache: 'no-store' }
+        );
+        if (!respuesta.ok) {
+            throw new Error(`API respondió ${respuesta.status} al cargar códigos.`);
+        }
+        const invitaciones = safeArray(await respuesta.json());
+        invitaciones.forEach(invitacion => {
+            const fila = document.createElement('tr');
+            [
+                invitacion.code,
+                invitacion.estado,
+                invitacion.created_by_username,
+                formatDateTime(invitacion.created_at),
+                formatDateTime(invitacion.expires_at),
+                invitacion.used_by_username || '—'
+            ].forEach(valor => {
+                const celda = document.createElement('td');
+                celda.textContent = valor || '';
+                fila.appendChild(celda);
+            });
+            tbody.appendChild(fila);
+        });
+        if (cargando) {
+            cargando.textContent = invitaciones.length
+                ? ''
+                : 'No hay códigos de invitación todavía.';
+            cargando.style.display = invitaciones.length ? 'none' : 'block';
+        }
+    } catch (error) {
+        if (cargando) {
+            cargando.textContent = '❌ No se pudieron cargar los códigos.';
+            cargando.style.display = 'block';
+        }
+        console.error('Error al cargar códigos de Gerencia:', error);
+    }
+}
+
+async function generarCodigoGerencia() {
+    const boton = document.getElementById('generarCodigoGerenciaBtn');
+    const resultado = document.getElementById('codigoGerenciaResultado');
+    boton.disabled = true;
+    resultado.textContent = '';
+
+    try {
+        const respuesta = await fetch(
+            `${API_LOCAL}/usuarios/invitaciones-gerencia/`,
+            {
+                method: 'POST',
+                headers: getAuthHeaders()
+            }
+        );
+        const invitacion = await respuesta.json();
+        if (!respuesta.ok) {
+            throw new Error(
+                invitacion.detail || 'No se pudo generar el código de invitación.'
+            );
+        }
+        resultado.textContent = `Código para entregar: ${invitacion.code} (vence ${formatDateTime(invitacion.expires_at)})`;
+        await cargarCodigosGerencia();
+    } catch (error) {
+        resultado.textContent = error.message || 'Error al generar el código.';
+        console.error('Error al generar código de Gerencia:', error);
+    } finally {
+        boton.disabled = false;
     }
 }
 
