@@ -13,6 +13,7 @@ from apps.catalogos.patient_scope import (
     PatientScopedViewSetMixin,
     is_patient_user,
 )
+from apps.catalogos.Pacientes.Api.serializers import PacientesSerializer
 
 
 class FakeQuerySet:
@@ -121,6 +122,12 @@ class PatientScopeTests(SimpleTestCase):
             serializer.validate({"rol": "Administrador"})
 
         self.assertEqual(serializer.validate({})["rol"], "Paciente")
+
+    def test_patient_profile_rejects_linking_non_patient_account(self):
+        serializer = PacientesSerializer()
+
+        with self.assertRaises(ValidationError):
+            serializer.validate_usuario(SimpleNamespace(rol="Administrador"))
 
     def test_patient_relation_paths_resolve_in_model_metadata(self):
         paths = (

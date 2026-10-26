@@ -1264,7 +1264,7 @@ async function cargarPacientes() {
     }
 }
 
-function abrirModalPacientes(modo, id = null) {
+async function abrirModalPacientes(modo, id = null) {
     limpiarErroresModales();
     editandoId.pacientes = id;
     if (modo === 'crear' || modo === 'editar') {
@@ -1288,8 +1288,64 @@ function abrirModalPacientes(modo, id = null) {
         document.getElementById('observacionPatologia').value = '';
         document.getElementById('activoPaciente').value = 'true';
     }
+    const guardarButton = document.getElementById('guardarPacienteButton');
+    const cuentaSelect = document.getElementById('usuarioPaciente');
+    const errorEl = document.getElementById('pacienteError');
+    guardarButton.disabled = true;
+    cuentaSelect.disabled = true;
     llenarSelectCatalogosPaciente();
     abrirModal('modalPacientes');
+    try {
+        await llenarSelectUsuariosPaciente(id);
+        guardarButton.disabled = false;
+    } catch (error) {
+        errorEl.textContent = 'No fue posible cargar las cuentas. Intente de nuevo.';
+        console.error('Error al cargar cuentas de pacientes:', error);
+    }
+}
+
+async function llenarSelectUsuariosPaciente(pacienteId = null) {
+    const select = document.getElementById('usuarioPaciente');
+    const [usuariosRespuesta, pacientesRespuesta] = await Promise.all([
+        fetch(`${API_LOCAL}/usuarios/`, { headers: getAuthHeaders() }),
+        fetch(`${API_LOCAL}/pacientes/`, { headers: getAuthHeaders() })
+    ]);
+
+    if (!usuariosRespuesta.ok || !pacientesRespuesta.ok) {
+        throw new Error('No se pudieron consultar usuarios y pacientes.');
+    }
+
+    const usuarios = safeArray(await usuariosRespuesta.json());
+    const pacientes = safeArray(await pacientesRespuesta.json());
+    const pacienteActualId = pacienteId === null ? null : Number(pacienteId);
+    const usuarioActualId = pacientes.find(
+        paciente => Number(paciente.id) === pacienteActualId
+    )?.usuario;
+    const usuariosOcupados = new Set(
+        pacientes
+            .filter(paciente => Number(paciente.id) !== pacienteActualId && paciente.usuario)
+            .map(paciente => Number(paciente.usuario))
+    );
+
+    select.replaceChildren(new Option('-- Sin cuenta vinculada --', ''));
+    usuarios
+        .filter(usuario =>
+            usuario.rol === 'Paciente' &&
+            (Number(usuario.id) === Number(usuarioActualId) ||
+                !usuariosOcupados.has(Number(usuario.id)))
+        )
+        .forEach(usuario => {
+            const nombre = [usuario.first_name, usuario.last_name]
+                .filter(Boolean)
+                .join(' ');
+            const etiqueta = nombre
+                ? `${nombre} (@${usuario.username})`
+                : usuario.username;
+            select.add(new Option(etiqueta, String(usuario.id)));
+        });
+
+    select.value = usuarioActualId ? String(usuarioActualId) : '';
+    select.disabled = false;
 }
 
 function formatearCedula(cedula) {
@@ -1347,6 +1403,9 @@ async function guardarPacientes() {
         direccion: document.getElementById('direccionPaciente').value.trim(),
         barrio: document.getElementById('barrioPaciente').value.trim(),
         id_sector: document.getElementById('sectorPaciente').value ? Number(document.getElementById('sectorPaciente').value) : null,
+        usuario: document.getElementById('usuarioPaciente').value
+            ? Number(document.getElementById('usuarioPaciente').value)
+            : null,
         estado: document.getElementById('activoPaciente').value === 'true'
     };
 
@@ -1430,8 +1489,11 @@ async function guardarPacientes() {
 
 async function editarPaciente(id) {
     const respuesta = await fetch(`${API_LOCAL}/pacientes/${id}/`, { headers: getAuthHeaders() });
+    if (!respuesta.ok) {
+        throw new Error(`No se pudo cargar el paciente (${respuesta.status}).`);
+    }
     const paciente = await respuesta.json();
-    abrirModalPacientes('editar', id);
+    await abrirModalPacientes('editar', id);
     document.getElementById('nomPaciente').value = paciente.nombre || '';
     document.getElementById('apePaciente').value = paciente.apellidos || '';
     document.getElementById('cedulaPaciente').value = formatearCedula(paciente.cedula);

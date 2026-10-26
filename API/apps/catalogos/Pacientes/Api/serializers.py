@@ -23,6 +23,25 @@ class PacientesSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate_usuario(self, value):
+        if value is None:
+            return value
+        if value.rol != "Paciente":
+            raise serializers.ValidationError(
+                "Solo se pueden vincular cuentas con rol Paciente."
+            )
+
+        pacientes_con_usuario = Pacientes.objects.filter(usuario=value)
+        if self.instance:
+            pacientes_con_usuario = pacientes_con_usuario.exclude(
+                pk=self.instance.pk
+            )
+        if pacientes_con_usuario.exists():
+            raise serializers.ValidationError(
+                "Esta cuenta ya está vinculada a otra ficha de paciente."
+            )
+        return value
+
     def validate(self, attrs):
         attrs = super().validate(attrs)
         request = self.context.get("request")

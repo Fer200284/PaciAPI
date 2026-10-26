@@ -995,6 +995,13 @@
                             placeholder="Apellidos" required>
                         </label>
                         <label class="form-field">
+                            <span>Cuenta de acceso <small>(opcional)</small></span>
+                            <select id="usuarioPaciente" class="form-input" disabled>
+                                <option value="">Cargando cuentas...</option>
+                            </select>
+                            <small class="campo-ayuda">Vincula la cuenta para que el paciente vea sus datos en la app móvil.</small>
+                        </label>
+                        <label class="form-field">
                             <span>Cédula <b>*</b></span>
                             <input id="cedulaPaciente"
                              class="form-input" 
@@ -1086,6 +1093,7 @@
                     <button class="btn" 
                     onclick="cerrarModal('modalPacientes')">Cancelar</button>
                     <button class="btn btn-primario"
+                     id="guardarPacienteButton"
                      onclick="guardarPacientes()">Guardar</button>
                 </div> 
             </div>
