@@ -5,10 +5,13 @@ from unittest.mock import MagicMock, patch
 
 from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from apps.Seguridad.Usuarios.Api.serializers import UserSerializer
+from apps.Seguridad.Usuarios.Api.views import UserViewSet
 from apps.catalogos.patient_scope import (
     PatientOwnedRelationsSerializerMixin,
     PatientScopedViewSetMixin,
@@ -247,3 +250,133 @@ class PatientScopeTests(SimpleTestCase):
                         field = current_model._meta.get_field(relation_field)
                         if index < len(relation_lookup.split("__")) - 1:
                             current_model = field.related_model
+
+
+class MobileSummaryTests(SimpleTestCase):
+    def test_patient_summary_returns_only_next_appointment_and_live_records(self):
+        patient = SimpleNamespace(
+            is_authenticated=True,
+            rol="Paciente",
+            pk=17,
+        )
+        appointment = {
+            "id": 23,
+            "fecha_proxima_cita": date(2026, 12, 1),
+            "hora_proxima_cita": None,
+            "id_medico__nombre": "Ana",
+            "id_medico__apellidos": "Lopez",
+            "id_paciente_patologia__id_patologia_cronica__nombre_patologia": "Asma",
+        }
+        medication = {
+            "id": 31,
+            "id_medicamento": 61,
+            "id_medicamento__nombre_medicamento": "Medicamento actualizado",
+            "id_medicamento__presentacion": "Tableta",
+            "id_medicamento__concentracion": "500 mg",
+            "id_medicamento__estado": True,
+            "cantidad_entregada": 30,
+            "indicacion": "Una diaria",
+            "id_tratamiento__fecha_tratamiento": date(2026, 10, 1),
+            "id_tratamiento__observaciones": None,
+        }
+        exam_request = {
+            "id": 41,
+            "id_examen_de_laboratorio": 71,
+            "id_examen_de_laboratorio__nombre_examen": "Hemograma",
+            "id_examen_de_laboratorio__unidad_medida": "g/dL",
+            "id_examen_de_laboratorio__valor_referencia": "12-16",
+            "id_examen_de_laboratorio__estado": True,
+            "indicaciones": "En ayunas",
+            "fecha_de_envio": None,
+        }
+        exam_result = {
+            "id": 51,
+            "id_solicitud_examen": 41,
+            "valor_resultado": 12,
+            "interpretacion": "Normal",
+            "fecha_resultado": None,
+        }
+        with (
+            patch(
+                "apps.Seguridad.Usuarios.Api.views.Pacientes.objects"
+            ) as patients,
+            patch(
+                "apps.Seguridad.Usuarios.Api.views.AtencionCronico.objects"
+            ) as appointments,
+            patch(
+                "apps.Seguridad.Usuarios.Api.views.DetalleTratamiento.objects"
+            ) as medication_details,
+            patch(
+                "apps.Seguridad.Usuarios.Api.views.SolicitudDeExamenes.objects"
+            ) as exam_requests,
+            patch(
+                "apps.Seguridad.Usuarios.Api.views.ResultadosExamenes.objects"
+            ) as exam_results,
+        ):
+            patients.filter.return_value.exists.return_value = True
+            appointments.filter.return_value.order_by.return_value.values.return_value.first.return_value = appointment
+            medication_details.filter.return_value.order_by.return_value.values.return_value = [
+                medication
+            ]
+            exam_requests.filter.return_value.order_by.return_value.values.return_value = [
+                exam_request
+            ]
+            exam_results.filter.return_value.order_by.return_value.values.return_value = [
+                exam_result
+            ]
+
+            request = APIRequestFactory().get("/api/usuarios/resumen-movil/")
+            force_authenticate(request, user=patient)
+            response = UserViewSet.as_view({
+                "get": "resumen_movil",
+            })(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["proxima_cita"]["fecha"], date(2026, 12, 1))
+        self.assertEqual(
+            response.data["medicamentos"][0]["nombre"],
+            "Medicamento actualizado",
+        )
+        self.assertEqual(
+            response.data["examenes_solicitados"][0]["resultados"][0]["interpretacion"],
+            "Normal",
+        )
+        appointment_filters = appointments.filter.call_args.kwargs
+        self.assertEqual(
+            appointment_filters["id_paciente_patologia__id_paciente__usuario"],
+            patient,
+        )
+        self.assertEqual(
+            appointment_filters["fecha_proxima_cita__gte"],
+            timezone.localdate(),
+        )
+        self.assertEqual(
+            medication_details.filter.call_args.kwargs[
+                "id_tratamiento__id_atencion_cronico__id_paciente_patologia__id_paciente__usuario"
+            ],
+            patient,
+        )
+        self.assertEqual(
+            exam_requests.filter.call_args.kwargs[
+                "id_atencion_cronico__id_paciente_patologia__id_paciente__usuario"
+            ],
+            patient,
+        )
+        exam_results.filter.assert_called_once_with(
+            id_solicitud_examen__in=[41]
+        )
+
+    def test_non_patient_cannot_access_mobile_summary(self):
+        manager = SimpleNamespace(
+            is_authenticated=True,
+            rol="Administrador",
+            pk=1,
+        )
+        request = APIRequestFactory().get("/api/usuarios/resumen-movil/")
+        force_authenticate(request, user=manager)
+
+        response = UserViewSet.as_view({
+            "get": "resumen_movil",
+        })(request)
+
+        self.assertEqual(response.status_code, 403)

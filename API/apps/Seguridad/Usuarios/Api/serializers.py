@@ -150,3 +150,53 @@ class UserSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+
+
+class MobileAppointmentSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    fecha = serializers.DateField()
+    hora = serializers.TimeField(allow_null=True)
+    medico = serializers.DictField()
+    patologia = serializers.CharField()
+
+
+class MobileMedicationSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    medicamento_id = serializers.IntegerField()
+    nombre = serializers.CharField()
+    presentacion = serializers.CharField()
+    concentracion = serializers.CharField()
+    activo = serializers.BooleanField()
+    cantidad_entregada = serializers.IntegerField()
+    indicacion = serializers.CharField()
+    fecha_tratamiento = serializers.DateField()
+    observaciones = serializers.CharField(allow_null=True)
+
+
+class MobileExamResultSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    valor_resultado = serializers.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        allow_null=True,
+    )
+    interpretacion = serializers.CharField(allow_null=True)
+    fecha_resultado = serializers.DateTimeField()
+
+
+class MobileExamRequestSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    examen_id = serializers.IntegerField()
+    nombre = serializers.CharField()
+    unidad_medida = serializers.CharField(allow_null=True)
+    valor_referencia = serializers.CharField(allow_null=True)
+    activo = serializers.BooleanField()
+    indicaciones = serializers.CharField()
+    fecha_solicitud = serializers.DateTimeField()
+    resultados = MobileExamResultSerializer(many=True)
+
+
+class MobileSummarySerializer(serializers.Serializer):
+    proxima_cita = MobileAppointmentSerializer(allow_null=True)
+    medicamentos = MobileMedicationSerializer(many=True)
+    examenes_solicitados = MobileExamRequestSerializer(many=True)
