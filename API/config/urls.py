@@ -31,9 +31,6 @@ urlpatterns = [
     # API de Seguridad
     path("api/", include("apps.Seguridad.urls")),
 
-    # Evaluaciones de pacientes almacenadas en MongoDB Atlas
-    path("api/", include("apps.evaluaciones.urls")),
-
     # API de Catálogos
     path("api/", include("apps.catalogos.urls")),
 
