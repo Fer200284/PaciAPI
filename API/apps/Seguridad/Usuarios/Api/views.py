@@ -26,6 +26,8 @@ class UserViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         if is_patient_user(self.request.user):
             return queryset.filter(pk=self.request.user.pk)
+        if getattr(self.request.user, 'rol', None) == User.Roles.GERENCIA:
+            return queryset.filter(rol=User.Roles.GERENCIA)
         return queryset
 
     def get_permissions(self):

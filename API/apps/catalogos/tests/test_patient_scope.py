@@ -81,6 +81,20 @@ class PatientScopeTests(SimpleTestCase):
 
         self.assertIsNone(queryset.filters)
 
+    def test_gerencia_user_list_only_contains_gerencia_accounts(self):
+        manager = SimpleNamespace(
+            is_authenticated=True,
+            rol="Gerencia",
+            pk=2,
+        )
+        view = UserViewSet()
+        view.queryset = MagicMock()
+        view.request = SimpleNamespace(user=manager)
+
+        view.get_queryset()
+
+        view.queryset.filter.assert_called_once_with(rol="Gerencia")
+
     def test_patient_view_without_scope_fails_closed(self):
         view = UnconfiguredFakeViewSet()
         view.request = SimpleNamespace(user=self.patient)
