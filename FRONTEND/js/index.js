@@ -2843,8 +2843,10 @@ async function cargarUsuarios() {
 async function cargarCodigosGerencia() {
     const cargando = document.getElementById('cargandoCodigosGerencia');
     const tbody = document.getElementById('bodyCodigosGerencia');
+    const resultado = document.getElementById('codigoGerenciaResultado');
     if (cargando) cargando.style.display = 'block';
     if (tbody) tbody.replaceChildren();
+    if (resultado) resultado.textContent = '';
 
     try {
         const respuesta = await fetch(
@@ -2857,18 +2859,9 @@ async function cargarCodigosGerencia() {
         const invitaciones = safeArray(await respuesta.json());
         invitaciones.forEach(invitacion => {
             const fila = document.createElement('tr');
-            [
-                invitacion.code,
-                invitacion.estado,
-                invitacion.created_by_username,
-                formatDateTime(invitacion.created_at),
-                formatDateTime(invitacion.expires_at),
-                invitacion.used_by_username || '—'
-            ].forEach(valor => {
-                const celda = document.createElement('td');
-                celda.textContent = valor || '';
-                fila.appendChild(celda);
-            });
+            const celda = document.createElement('td');
+            celda.textContent = invitacion.code || '';
+            fila.appendChild(celda);
             tbody.appendChild(fila);
         });
         if (cargando) {
@@ -2878,10 +2871,8 @@ async function cargarCodigosGerencia() {
             cargando.style.display = invitaciones.length ? 'none' : 'block';
         }
     } catch (error) {
-        if (cargando) {
-            cargando.textContent = '❌ No se pudieron cargar los códigos.';
-            cargando.style.display = 'block';
-        }
+        if (cargando) cargando.style.display = 'none';
+        if (resultado) resultado.textContent = 'No se pudieron cargar los códigos.';
         console.error('Error al cargar códigos de Gerencia:', error);
     }
 }
@@ -2900,16 +2891,21 @@ async function generarCodigoGerencia() {
                 headers: getAuthHeaders()
             }
         );
-        const invitacion = await respuesta.json();
+        const contenido = await respuesta.text();
+        let invitacion;
+        try {
+            invitacion = contenido ? JSON.parse(contenido) : {};
+        } catch {
+            throw new Error('No se pudo generar el código de invitación.');
+        }
         if (!respuesta.ok) {
             throw new Error(
                 invitacion.detail || 'No se pudo generar el código de invitación.'
             );
         }
-        resultado.textContent = `Código para entregar: ${invitacion.code} (vence ${formatDateTime(invitacion.expires_at)})`;
         await cargarCodigosGerencia();
     } catch (error) {
-        resultado.textContent = error.message || 'Error al generar el código.';
+        resultado.textContent = error.message || 'No se pudo generar el código.';
         console.error('Error al generar código de Gerencia:', error);
     } finally {
         boton.disabled = false;
@@ -3156,7 +3152,8 @@ function configurarOrdenYSeleccion() {
         const contenedor = tabla.closest('.tabla-contenedor');
         const cabecera = contenedor?.querySelector('.tabla-cabecera');
         const cuerpo = tabla.querySelector('tbody');
-        if (!cabecera || !cuerpo || cabecera.querySelector('.orden-tabla')) return;
+        if (tabla.classList.contains('tabla-sin-orden') ||
+            !cabecera || !cuerpo || cabecera.querySelector('.orden-tabla')) return;
         const indiceFecha = Array.from(tabla.tHead?.rows[0]?.cells || [])
             .findIndex(celda => /cread|fecha.*ingres|fecha.*registro/i.test(celda.textContent));
 
