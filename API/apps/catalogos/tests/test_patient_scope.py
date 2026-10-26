@@ -1,6 +1,7 @@
+from datetime import date
 from importlib import import_module
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase
@@ -107,8 +108,6 @@ class PatientScopeTests(SimpleTestCase):
         with self.assertRaises(ValidationError):
             serializer.validate({"rol": "Administrador"})
 
-        self.assertEqual(serializer.validate({})["rol"], "Paciente")
-
     def test_public_registration_cannot_create_privileged_role(self):
         serializer = UserSerializer(
             context={
@@ -121,7 +120,52 @@ class PatientScopeTests(SimpleTestCase):
         with self.assertRaises(ValidationError):
             serializer.validate({"rol": "Administrador"})
 
-        self.assertEqual(serializer.validate({})["rol"], "Paciente")
+    @patch("apps.Seguridad.Usuarios.Api.serializers.Pacientes.objects")
+    def test_public_registration_requires_matching_patient_data(self, patients):
+        profile = SimpleNamespace(
+            usuario_id=None,
+            nombre="Juan Carlos",
+            apellidos="Pérez López",
+            fecha_de_nacimiento=date(1990, 1, 1),
+            celular="88888888",
+        )
+        patients.filter.return_value.first.return_value = profile
+        serializer = UserSerializer(
+            context={
+                "request": SimpleNamespace(
+                    user=SimpleNamespace(is_authenticated=False)
+                )
+            }
+        )
+
+        attrs = serializer.validate({
+            "username": "juan",
+            "password": "secure-password",
+            "nombre": " juan   carlos ",
+            "apellidos": "PÉREZ LÓPEZ",
+            "cedula": "0010101000000-a",
+            "fecha_de_nacimiento": date(1990, 1, 1),
+            "celular": "88888888",
+        })
+
+        self.assertIs(attrs["_patient_profile"], profile)
+        self.assertEqual(attrs["rol"], "Paciente")
+        patients.filter.assert_called_once_with(cedula="0010101000000A")
+
+    def test_public_registration_rejects_missing_patient_identity(self):
+        serializer = UserSerializer(
+            context={
+                "request": SimpleNamespace(
+                    user=SimpleNamespace(is_authenticated=False)
+                )
+            }
+        )
+
+        with self.assertRaises(ValidationError):
+            serializer.validate({
+                "username": "juan",
+                "password": "secure-password",
+            })
 
     def test_patient_profile_rejects_linking_non_patient_account(self):
         serializer = PacientesSerializer()
