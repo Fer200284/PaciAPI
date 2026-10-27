@@ -30,6 +30,22 @@ la encuesta en `encuestas_pacientes` (máximo 2000 caracteres). No hace falta
 crear una colección nueva en MongoDB. El ETL podrá usar ese texto para poblar
 `DimComentario` en el Data Warehouse.
 
+## Consultar y administrar encuestas
+
+- `GET /api/analytics/encuestas/`: Paciente recibe solo encuestas de su ficha
+  vinculada; Gerencia puede consultar todas.
+- `GET /api/analytics/encuestas/{id}/`: obtiene una encuesta por su `_id` de
+  MongoDB, devuelto por la API como `id`.
+- `PUT` o `PATCH /api/analytics/encuestas/{id}/`: el Paciente propietario
+  puede actualizar puntuaciones y/o comentario. Envía solo los campos que
+  cambian.
+- `DELETE /api/analytics/encuestas/{id}/`: el Paciente propietario puede
+  eliminar su encuesta.
+
+Gerencia tiene acceso de solo lectura. Los cambios y eliminaciones se limitan
+al Paciente asociado al token; una encuesta que no pertenezca a su ficha se
+responde como no encontrada.
+
 ### Cómo obtener los identificadores
 
 - `id_paciente` corresponde al `id` de `Pacientes`, no al ID de la cuenta

@@ -7,7 +7,8 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from .serializers import EncuestaSerializer
 from .services import guardar_encuesta
-from .views import EncuestasView
+from .views import EncuestaDetalleView, EncuestasView
+from bson import ObjectId
 
 
 ENCUESTA = {
@@ -97,6 +98,43 @@ class EncuestaServiceTests(SimpleTestCase):
 
 
 class EncuestasApiTests(SimpleTestCase):
+    @patch("Analytics.views.Pacientes.objects.filter")
+    @patch("Analytics.views.listar_encuestas")
+    def test_patient_lists_only_surveys_for_linked_profile(
+        self,
+        listar,
+        pacientes,
+    ):
+        patient = SimpleNamespace(is_authenticated=True, rol="Paciente")
+        object_id = ObjectId("671d45a201b2c00000000001")
+        pacientes.return_value.values_list.return_value.first.return_value = 102
+        listar.return_value = [{
+            "_id": object_id,
+            "id_paciente": 102,
+            "comentario": "Atención amable.",
+        }]
+        request = APIRequestFactory().get("/api/analytics/encuestas/")
+        force_authenticate(request, user=patient)
+
+        response = EncuestasView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[0]["id"], str(object_id))
+        self.assertEqual(response.data[0]["id_paciente"], 102)
+        listar.assert_called_once_with({"id_paciente": 102})
+
+    @patch("Analytics.views.listar_encuestas")
+    def test_gerencia_lists_all_surveys(self, listar):
+        manager = SimpleNamespace(is_authenticated=True, rol="Gerencia")
+        listar.return_value = []
+        request = APIRequestFactory().get("/api/analytics/encuestas/")
+        force_authenticate(request, user=manager)
+
+        response = EncuestasView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        listar.assert_called_once_with({})
+
     @patch("Analytics.views.guardar_encuesta", return_value="mongo-object-id")
     def test_patient_can_submit_survey(self, guardar_encuesta):
         patient = SimpleNamespace(
@@ -136,3 +174,139 @@ class EncuestasApiTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 403)
         guardar_encuesta.assert_not_called()
+
+    @patch("Analytics.views.Pacientes.objects.filter")
+    @patch("Analytics.views.obtener_encuesta")
+    def test_patient_gets_only_own_survey(self, obtener, pacientes):
+        patient = SimpleNamespace(is_authenticated=True, rol="Paciente")
+        object_id = ObjectId("671d45a201b2c00000000002")
+        pacientes.return_value.values_list.return_value.first.return_value = 102
+        obtener.return_value = {
+            "_id": object_id,
+            "id_paciente": 102,
+            "comentario": "Atención amable.",
+        }
+        request = APIRequestFactory().get(
+            f"/api/analytics/encuestas/{object_id}/"
+        )
+        force_authenticate(request, user=patient)
+
+        response = EncuestaDetalleView.as_view()(request, encuesta_id=str(object_id))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["id"], str(object_id))
+        obtener.assert_called_once_with({
+            "_id": object_id,
+            "id_paciente": 102,
+        })
+
+    @patch("Analytics.views.Pacientes.objects.filter")
+    @patch("Analytics.views.actualizar_encuesta")
+    @patch("Analytics.views.obtener_encuesta")
+    def test_patient_updates_own_survey(
+        self,
+        obtener,
+        actualizar,
+        pacientes,
+    ):
+        patient = SimpleNamespace(is_authenticated=True, rol="Paciente")
+        object_id = ObjectId("671d45a201b2c00000000003")
+        pacientes.return_value.values_list.return_value.first.return_value = 102
+        actualizar.return_value.matched_count = 1
+        obtener.return_value = {
+            "_id": object_id,
+            "id_paciente": 102,
+            "puntuacion_general": 4,
+        }
+        request = APIRequestFactory().patch(
+            f"/api/analytics/encuestas/{object_id}/",
+            {"puntuacion_general": 4},
+            format="json",
+        )
+        force_authenticate(request, user=patient)
+
+        response = EncuestaDetalleView.as_view()(
+            request,
+            encuesta_id=str(object_id),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        actualizar.assert_called_once_with(
+            {"_id": object_id, "id_paciente": 102},
+            {"puntuacion_general": 4},
+        )
+
+    @patch("Analytics.views.Pacientes.objects.filter")
+    @patch("Analytics.views.eliminar_encuesta")
+    def test_patient_deletes_own_survey(self, eliminar, pacientes):
+        patient = SimpleNamespace(is_authenticated=True, rol="Paciente")
+        object_id = ObjectId("671d45a201b2c00000000004")
+        pacientes.return_value.values_list.return_value.first.return_value = 102
+        eliminar.return_value.deleted_count = 1
+        request = APIRequestFactory().delete(
+            f"/api/analytics/encuestas/{object_id}/"
+        )
+        force_authenticate(request, user=patient)
+
+        response = EncuestaDetalleView.as_view()(
+            request,
+            encuesta_id=str(object_id),
+        )
+
+        self.assertEqual(response.status_code, 204)
+        eliminar.assert_called_once_with({
+            "_id": object_id,
+            "id_paciente": 102,
+        })
+
+    @patch("Analytics.views.actualizar_encuesta")
+    def test_gerencia_cannot_update_survey(self, actualizar):
+        manager = SimpleNamespace(is_authenticated=True, rol="Gerencia")
+        object_id = ObjectId("671d45a201b2c00000000005")
+        request = APIRequestFactory().patch(
+            f"/api/analytics/encuestas/{object_id}/",
+            {"puntuacion_general": 4},
+            format="json",
+        )
+        force_authenticate(request, user=manager)
+
+        response = EncuestaDetalleView.as_view()(
+            request,
+            encuesta_id=str(object_id),
+        )
+
+        self.assertEqual(response.status_code, 403)
+        actualizar.assert_not_called()
+
+    @patch("Analytics.views.eliminar_encuesta")
+    def test_gerencia_cannot_delete_survey(self, eliminar):
+        manager = SimpleNamespace(is_authenticated=True, rol="Gerencia")
+        object_id = ObjectId("671d45a201b2c00000000006")
+        request = APIRequestFactory().delete(
+            f"/api/analytics/encuestas/{object_id}/"
+        )
+        force_authenticate(request, user=manager)
+
+        response = EncuestaDetalleView.as_view()(
+            request,
+            encuesta_id=str(object_id),
+        )
+
+        self.assertEqual(response.status_code, 403)
+        eliminar.assert_not_called()
+
+    @patch("Analytics.views.obtener_encuesta")
+    def test_invalid_mongo_id_returns_not_found_without_query(self, obtener):
+        manager = SimpleNamespace(is_authenticated=True, rol="Gerencia")
+        request = APIRequestFactory().get(
+            "/api/analytics/encuestas/no-es-object-id/"
+        )
+        force_authenticate(request, user=manager)
+
+        response = EncuestaDetalleView.as_view()(
+            request,
+            encuesta_id="no-es-object-id",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        obtener.assert_not_called()
