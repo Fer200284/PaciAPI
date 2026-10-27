@@ -21,6 +21,7 @@ ENCUESTA = {
     "score_trato_personal": 5,
     "score_consulta_doctor": 5,
     "resolucion_dudas_val": 1,
+    "comentario": "La atención fue muy buena.",
 }
 
 
@@ -51,6 +52,26 @@ class EncuestaSerializerTests(SimpleTestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertIn("id_fecha", serializer.errors)
+
+    def test_comment_is_optional(self):
+        encuesta = {
+            key: value
+            for key, value in ENCUESTA.items()
+            if key != "comentario"
+        }
+        serializer = EncuestaSerializer(data=encuesta)
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertNotIn("comentario", serializer.validated_data)
+
+    def test_rejects_comment_longer_than_2000_characters(self):
+        serializer = EncuestaSerializer(data={
+            **ENCUESTA,
+            "comentario": "a" * 2001,
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("comentario", serializer.errors)
 
     def test_rejects_date_without_hyphens(self):
         serializer = EncuestaSerializer(data={

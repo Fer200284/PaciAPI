@@ -12,3 +12,8 @@ class EncuestaSerializer(serializers.Serializer):
     score_trato_personal = serializers.IntegerField(min_value=1, max_value=5)
     score_consulta_doctor = serializers.IntegerField(min_value=1, max_value=5)
     resolucion_dudas_val = serializers.IntegerField(min_value=0, max_value=1)
+    comentario = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=2000,
+    )

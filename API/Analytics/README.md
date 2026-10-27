@@ -20,9 +20,15 @@ El cuerpo JSON debe incluir:
   "tiempo_espera_minutos": 5,
   "score_trato_personal": 5,
   "score_consulta_doctor": 5,
-  "resolucion_dudas_val": 1
+  "resolucion_dudas_val": 1,
+  "comentario": "La atención fue muy buena."
 }
 ```
+
+`comentario` es opcional y se guarda como texto dentro del mismo documento de
+la encuesta en `encuestas_pacientes` (máximo 2000 caracteres). No hace falta
+crear una colección nueva en MongoDB. El ETL podrá usar ese texto para poblar
+`DimComentario` en el Data Warehouse.
 
 ### Cómo obtener los identificadores
 
