@@ -31,6 +31,9 @@ urlpatterns = [
     # API de Seguridad
     path("api/", include("apps.Seguridad.urls")),
 
+    # Encuestas analíticas almacenadas en MongoDB
+    path("api/", include("Analytics.urls")),
+
     # API de Catálogos
     path("api/", include("apps.catalogos.urls")),
 
