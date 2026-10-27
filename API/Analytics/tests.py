@@ -1,3 +1,4 @@
+from datetime import date
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -11,7 +12,7 @@ from .views import EncuestasView
 
 ENCUESTA = {
     "id_encuesta": 1054,
-    "id_fecha": 20261026,
+    "id_fecha": "2026-10-26",
     "id_paciente": 102,
     "id_patologia": 12,
     "puntuacion_general": 5,
@@ -24,11 +25,14 @@ ENCUESTA = {
 
 
 class EncuestaSerializerTests(SimpleTestCase):
-    def test_accepts_numeric_survey_payload(self):
+    def test_accepts_iso_date_survey_payload(self):
         serializer = EncuestaSerializer(data=ENCUESTA)
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
-        self.assertEqual(serializer.validated_data, ENCUESTA)
+        self.assertEqual(
+            serializer.validated_data["id_fecha"],
+            date(2026, 10, 26),
+        )
 
     def test_rejects_scores_outside_one_to_five(self):
         serializer = EncuestaSerializer(data={
@@ -42,7 +46,16 @@ class EncuestaSerializerTests(SimpleTestCase):
     def test_rejects_invalid_date_key(self):
         serializer = EncuestaSerializer(data={
             **ENCUESTA,
-            "id_fecha": 20260230,
+            "id_fecha": "2026-02-30",
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("id_fecha", serializer.errors)
+
+    def test_rejects_date_without_hyphens(self):
+        serializer = EncuestaSerializer(data={
+            **ENCUESTA,
+            "id_fecha": "20261026",
         })
 
         self.assertFalse(serializer.is_valid())
@@ -53,8 +66,10 @@ class EncuestaServiceTests(SimpleTestCase):
     @patch("Analytics.services.get_encuestas_collection")
     def test_saves_validated_survey_and_returns_mongo_id(self, collection):
         collection.return_value.insert_one.return_value.inserted_id = "mongo-id"
+        serializer = EncuestaSerializer(data=ENCUESTA)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
 
-        result = guardar_encuesta(ENCUESTA)
+        result = guardar_encuesta(serializer.validated_data)
 
         self.assertEqual(result, "mongo-id")
         collection.return_value.insert_one.assert_called_once_with(ENCUESTA)
@@ -78,7 +93,10 @@ class EncuestasApiTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data, {"id": "mongo-object-id"})
-        guardar_encuesta.assert_called_once_with(ENCUESTA)
+        guardar_encuesta.assert_called_once_with({
+            **ENCUESTA,
+            "id_fecha": date(2026, 10, 26),
+        })
 
     @patch("Analytics.views.guardar_encuesta")
     def test_non_patient_cannot_submit_survey(self, guardar_encuesta):

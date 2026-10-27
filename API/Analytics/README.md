@@ -12,7 +12,7 @@ El cuerpo JSON debe incluir:
 ```json
 {
   "id_encuesta": 1054,
-  "id_fecha": 20261026,
+  "id_fecha": "2026-10-26",
   "id_paciente": 102,
   "id_patologia": 12,
   "puntuacion_general": 5,
@@ -33,8 +33,8 @@ El cuerpo JSON debe incluir:
   `id_patologia_cronica_id`, no el `id` de la relación.
 - Ambos son claves primarias `BigAutoField` en este proyecto. Los valores `102`
   y `12` del ejemplo son ilustrativos; usa los IDs reales que devuelve la API.
-- `id_fecha` es la clave de fecha `AAAAMMDD`. El proyecto todavía no contiene
-  un modelo de dimensión de fechas.
+- `id_fecha` es una fecha como texto con formato `AAAA-MM-DD`. El proyecto
+  todavía no contiene un modelo de dimensión de fechas.
 - El proyecto tampoco tiene un modelo relacional de encuestas: `id_encuesta`
   debe ser el identificador que asigne la app o el sistema que envía la
   encuesta. MongoDB genera aparte el campo `_id`.
@@ -43,4 +43,5 @@ Envía el JWT de la cuenta Paciente en `Authorization: Bearer <access>`.
 
 Las puntuaciones se validan entre 1 y 5, el tiempo de espera como valor entero
 no negativo y la resolución de dudas como `0` o `1`. `id_fecha` debe ser una
-fecha válida con formato `AAAAMMDD`.
+fecha válida con formato `AAAA-MM-DD`; MongoDB la almacena como texto, por
+ejemplo `"2026-10-26"`.
