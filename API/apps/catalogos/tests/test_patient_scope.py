@@ -19,6 +19,7 @@ from apps.catalogos.patient_scope import (
     is_patient_user,
 )
 from apps.catalogos.Pacientes.Api.serializers import PacientesSerializer
+from apps.catalogos.Pacientes.Api.views import PacientesViewSet
 
 
 class FakeQuerySet:
@@ -94,6 +95,25 @@ class PatientScopeTests(SimpleTestCase):
         view.get_queryset()
 
         view.queryset.filter.assert_called_once_with(rol="Gerencia")
+
+    def test_gerencia_patient_list_only_contains_mobile_linked_profiles(self):
+        manager = SimpleNamespace(is_authenticated=True, rol="Gerencia")
+        view = PacientesViewSet()
+        view.queryset = MagicMock()
+        view.request = SimpleNamespace(user=manager)
+
+        view.get_queryset()
+
+        view.queryset.filter.assert_called_once_with(usuario__isnull=False)
+
+    def test_administrator_patient_list_remains_unfiltered(self):
+        view = PacientesViewSet()
+        view.queryset = MagicMock()
+        view.request = SimpleNamespace(user=self.admin)
+
+        view.get_queryset()
+
+        view.queryset.filter.assert_not_called()
 
     def test_patient_view_without_scope_fails_closed(self):
         view = UnconfiguredFakeViewSet()
