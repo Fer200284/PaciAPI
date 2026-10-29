@@ -1251,6 +1251,18 @@ body.formulario-bloqueado {
     white-space: nowrap;
 }
 
+.seguimiento-atencion {
+    display: flex;
+    min-width: 180px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.seguimiento-atencion .btn {
+    margin-top: 4px;
+}
+
 #tablaExamenesLaboratorio th,
 #tablaMedicos th,
 #tablaTratamientos th,

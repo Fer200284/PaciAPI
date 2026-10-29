@@ -445,6 +445,18 @@ function formatHoraAmPm(value) {
     return `${String(hora12).padStart(2, '0')}:${coincidencia[2]} ${periodo}`;
 }
 
+function formatFechaHoraAmPm(value) {
+    if (!value) return '';
+    const fecha = new Date(value);
+    if (Number.isNaN(fecha.getTime())) return '';
+    return new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Managua',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    }).format(fecha);
+}
+
 function calcularEdad(fechaNacimiento) {
     if (!fechaNacimiento) return '-';
     const nacimiento = new Date(`${fechaNacimiento}T00:00:00`);
@@ -1723,6 +1735,7 @@ async function cargarCitasMedicas() {
                 <td>${textValue(c, 'presion_arterial') || '-'}</td>
                 <td>${formatDate(textValue(c, 'fecha_proxima_cita')) || '-'}${textValue(c, 'hora_proxima_cita') ? `<br>${formatHoraAmPm(textValue(c, 'hora_proxima_cita'))}` : ''}</td>
                 <td>${isTrue(textValue(c, 'asistio')) ? '✔ Sí' : '❌ No'}</td>
+                <td>${renderSeguimientoAtencion(c)}</td>
                 <td>${isTrue(textValue(c, 'consulta_especializada')) ? '✔ Sí' : '❌ No'}</td>
                 <td>${textValue(c, 'observaciones') || '-'}</td>
                 <td>${formatDateTime(textValue(c, 'fecha_creacion'))}</td>
@@ -1737,6 +1750,70 @@ async function cargarCitasMedicas() {
     } catch (error) {
         if (cargando) cargando.textContent = '❌ Error al cargar atenciones.';
         console.error(error);
+    }
+}
+
+function renderSeguimientoAtencion(atencion) {
+    const momentos = [
+        ['Llegada', atencion.fecha_hora_llegada],
+        ['Inicio', atencion.fecha_hora_inicio_consulta],
+        ['Fin', atencion.fecha_hora_fin_consulta]
+    ];
+    const horarios = momentos
+        .map(([etiqueta, valor]) => (
+            `<div><strong>${etiqueta}:</strong> ${formatFechaHoraAmPm(valor) || 'Pendiente'}</div>`
+        ))
+        .join('');
+    const acciones = [];
+
+    if (!atencion.fecha_hora_llegada) {
+        acciones.push(
+            `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'marcar-llegada', this)">Marcar llegada</button>`
+        );
+    } else if (!atencion.fecha_hora_inicio_consulta) {
+        acciones.push(
+            `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'iniciar-consulta', this)">Iniciar consulta</button>`
+        );
+    } else if (!atencion.fecha_hora_fin_consulta) {
+        acciones.push(
+            `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'finalizar-consulta', this)">Finalizar consulta</button>`
+        );
+    }
+
+    return `<div class="seguimiento-atencion">${horarios}${acciones.join('')}</div>`;
+}
+
+async function marcarMomentoAtencion(id, accion, boton) {
+    if (!Number.isInteger(id) || id < 1) {
+        alert('No se pudo identificar la atención.');
+        return;
+    }
+
+    const textoOriginal = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = 'Guardando...';
+    try {
+        const respuesta = await fetch(
+            `${API_LOCAL}/atencion-cronico/${id}/${accion}/`,
+            {
+                method: 'POST',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                body: '{}'
+            }
+        );
+        if (!respuesta.ok) {
+            const error = await respuesta.json().catch(() => null);
+            const detalle = error?.detail
+                || Object.values(error || {}).flat().join(' ')
+                || `El servidor respondió ${respuesta.status}.`;
+            throw new Error(detalle);
+        }
+        await cargarCitasMedicas();
+    } catch (error) {
+        console.error('No se pudo registrar el horario de atención:', error);
+        alert(error.message || 'No se pudo registrar el horario de atención.');
+        boton.disabled = false;
+        boton.textContent = textoOriginal;
     }
 }
 
