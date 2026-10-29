@@ -1799,7 +1799,7 @@ function renderSeguimientoAtencion(atencion) {
             <summary class="btn btn-sm btn-secundario">⏱ Horario</summary>
             <div class="seguimiento-atencion-detalle">${horarios}${accion}</div>
         </details>${atencion.fecha_hora_fin_consulta
-            ? '<span class="btn btn-sm seguimiento-atencion-finalizada" role="status">✓ Finalizó</span>'
+            ? '<button type="button" class="btn btn-sm seguimiento-atencion-finalizada" role="status" disabled>✓ Finalizado</button>'
             : ''}
     `;
 }
@@ -3303,9 +3303,11 @@ function configurarOrdenYSeleccion() {
                         botonesActuales.forEach(boton => {
                             boton.title = boton.classList.contains('btn-detalles')
                                 ? 'Ver detalles'
-                                : boton.classList.contains('btn-peligro')
-                                    ? 'Eliminar'
-                                    : 'Editar';
+                                : boton.classList.contains('seguimiento-atencion-finalizada')
+                                    ? 'Consulta finalizada'
+                                    : boton.classList.contains('btn-peligro')
+                                        ? 'Eliminar'
+                                        : 'Editar';
                             boton.setAttribute('aria-label', boton.title);
                             barraAcciones.appendChild(boton);
                         });

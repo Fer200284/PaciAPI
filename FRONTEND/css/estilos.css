@@ -1288,6 +1288,12 @@ body.formulario-bloqueado {
     border: 1px solid #86efac;
     border-radius: 6px;
     cursor: default;
+    opacity: 1;
+}
+
+.barra-acciones .seguimiento-atencion-finalizada:hover {
+    transform: none;
+    filter: none;
 }
 
 .acciones-atencion {
