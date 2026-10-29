@@ -399,6 +399,33 @@ async function fetchJsonOrThrow(url, options = {}) {
     return response.json();
 }
 
+async function eliminarRegistroCatalogo(url, mensajeConfirmacion, alEliminar) {
+    if (!confirm(mensajeConfirmacion)) return;
+
+    let respuesta;
+    try {
+        respuesta = await fetch(url, {
+            method: 'DELETE',
+            headers: getAuthHeaders()
+        });
+    } catch (error) {
+        console.error('No se pudo eliminar el registro:', error);
+        alert('No se pudo conectar con la API para eliminar el registro.');
+        return;
+    }
+
+    if (!respuesta.ok) {
+        const error = await respuesta.json().catch(() => null);
+        const detalle = error?.detail
+            || Object.values(error || {}).flat().join(' ')
+            || `No se pudo eliminar el registro (HTTP ${respuesta.status}).`;
+        alert(detalle);
+        return;
+    }
+
+    await alEliminar();
+}
+
 function textValue(obj, ...keys) {
     for (const key of keys) {
         if (obj && obj[key] !== null && obj[key] !== undefined && obj[key] !== '') {
@@ -940,9 +967,11 @@ async function editarEspecialidad(id) {
 }
 
 async function eliminarEspecialidad(id) {
-    if (!confirm('¿Desea eliminar esta especialidad?')) return;
-    const respuesta = await fetch(`${API_LOCAL}/especialidades/${id}/`, { method: 'DELETE', headers: getAuthHeaders() });
-    if (respuesta.ok) cargarEspecialidades();
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/especialidades/${id}/`,
+        '¿Desea eliminar esta especialidad?',
+        cargarEspecialidades
+    );
 }
 
 function abrirModalSector(id = null) {
@@ -993,10 +1022,11 @@ async function editarSector(id) {
 }
 
 async function eliminarSector(id) {
-    if (!confirm('¿Desea eliminar este sector?')) return;
-    const respuesta = await fetch(`${API_LOCAL}/sector/${id}/`, 
-    { method: 'DELETE', headers: getAuthHeaders() });
-    if (respuesta.ok) cargarSectores();
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/sector/${id}/`,
+        '¿Desea eliminar este sector?',
+        cargarSectores
+    );
 }
 
 function abrirModalPatologiaCronica(id = null) {
@@ -1519,19 +1549,13 @@ async function editarPaciente(id) {
 }
 
 async function eliminarPaciente(id, nombre) {
-    if (!confirm(`¿Desea eliminar a ${nombre}?`)) return;
-    try {
-        const res = await fetch(`${API_LOCAL}/pacientes/${id}/`,
-             { method: 'DELETE', headers: getAuthHeaders() });
-        if (res.ok) {
-            cargarPacientes();
-            cargarDashboard();
-        } else {
-            alert('No se pudo eliminar el registro.');
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/pacientes/${id}/`,
+        `¿Desea eliminar a ${nombre}?`,
+        async () => {
+            await Promise.all([cargarPacientes(), cargarDashboard()]);
         }
-    } catch (e) {
-        console.error(e);
-    }
+    );
 }
 
 // ==========================================
@@ -1649,19 +1673,13 @@ async function editarMedico(id) {
 }
 
 async function eliminarMedico(id, nombre) {
-    if (!confirm(`¿Desea eliminar al médico ${nombre}?`)) return;
-    try {
-        const res = await fetch(`${API_LOCAL}/medicos/${id}/`, 
-            { method: 'DELETE', headers: getAuthHeaders() });
-        if (res.ok) {
-            cargarMedicos();
-            cargarDashboard();
-        } else {
-            alert('No se puede eliminar porque tiene registros vinculados.');
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/medicos/${id}/`,
+        `¿Desea eliminar al médico ${nombre}?`,
+        async () => {
+            await Promise.all([cargarMedicos(), cargarDashboard()]);
         }
-    } catch (e) {
-        console.error(e);
-    }
+    );
 }
 
 // ==========================================
@@ -1675,7 +1693,10 @@ async function cargarCitasMedicas() {
 
     try {
         const [respuesta, relacionesRespuesta, pacientesRespuesta, patologiasRespuesta, medicosRespuesta] = await Promise.all([
-            fetch(`${API_LOCAL}/atencion-cronico/`, { headers: getAuthHeaders() }),
+            fetch(`${API_LOCAL}/atencion-cronico/`, {
+                headers: getAuthHeaders(),
+                cache: 'no-store'
+            }),
             fetch(`${API_LOCAL}/paciente-patologia/`, { headers: getAuthHeaders() }),
             fetch(`${API_LOCAL}/pacientes/`, { headers: getAuthHeaders() }),
             fetch(`${API_LOCAL}/patologias-cronicas/`, { headers: getAuthHeaders() }),
@@ -1771,15 +1792,15 @@ function renderSeguimientoAtencion(atencion) {
         accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'iniciar-consulta', this)">Iniciar consulta</button>`;
     } else if (!atencion.fecha_hora_fin_consulta) {
         accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'finalizar-consulta', this)">Finalizar consulta</button>`;
-    } else {
-        accion = '<span class="btn btn-sm seguimiento-atencion-finalizada" role="status">✓ Finalizó</span>';
     }
 
     return `
         <details class="seguimiento-atencion">
             <summary class="btn btn-sm btn-secundario">⏱ Horario</summary>
             <div class="seguimiento-atencion-detalle">${horarios}${accion}</div>
-        </details>
+        </details>${atencion.fecha_hora_fin_consulta
+            ? '<span class="btn btn-sm seguimiento-atencion-finalizada" role="status">✓ Finalizó</span>'
+            : ''}
     `;
 }
 
@@ -2120,9 +2141,11 @@ async function editarTratamiento(id) {
 }
 
 async function eliminarTratamiento(id) {
-    if (!confirm('¿Desea eliminar este tratamiento?')) return;
-    const respuesta = await fetch(`${API_LOCAL}/tratamiento/${id}/`, { method: 'DELETE', headers: getAuthHeaders() });
-    if (respuesta.ok) cargarTratamientos();
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/tratamiento/${id}/`,
+        '¿Desea eliminar este tratamiento?',
+        cargarTratamientos
+    );
 }
 
 async function abrirModalDetalleTratamiento(id = null) {
@@ -2249,10 +2272,11 @@ async function editarDetalleTratamiento(id) {
 }
 
 async function eliminarDetalleTratamiento(id) {
-    if (!confirm('¿Desea eliminar este medicamento del tratamiento?')) return;
-    const respuesta = await fetch(`${API_LOCAL}/detalle-tratamiento/${id}/`, 
-        { method: 'DELETE', headers: getAuthHeaders() });
-    if (respuesta.ok) cargarDetalleTratamiento();
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/detalle-tratamiento/${id}/`,
+        '¿Desea eliminar este medicamento del tratamiento?',
+        cargarDetalleTratamiento
+    );
 }
 
 async function abrirModalCitasMedicas(modo, id = null) {
@@ -2402,11 +2426,13 @@ async function guardarCitasMedicas() {
 }
 
 async function eliminarCita(id) {
-    if (!confirm('¿Desea eliminar esta atención?')) return;
-    try {
-        const res = await fetch(`${API_LOCAL}/atencion-cronico/${id}/`, { method: 'DELETE', headers: getAuthHeaders() });
-        if (res.ok) { cargarCitasMedicas(); cargarDashboard(); }
-    } catch (e) { console.error(e); }
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/atencion-cronico/${id}/`,
+        '¿Desea eliminar esta atención?',
+        async () => {
+            await Promise.all([cargarCitasMedicas(), cargarDashboard()]);
+        }
+    );
 }
 
 async function cancelarProximaCita(id, boton) {
@@ -2508,10 +2534,11 @@ async function editarCategoriaMedicamento(id) {
 }
 
 async function eliminarCategoriaMedicamento(id) {
-    if (!confirm('¿Desea eliminar esta categoría?')) return;
-    const respuesta = await fetch(`${API_LOCAL}/categoria-medicamento/${id}/`,
-         { method: 'DELETE', headers: getAuthHeaders() });
-    if (respuesta.ok) cargarCategoriasMedicamentos();
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/categoria-medicamento/${id}/`,
+        '¿Desea eliminar esta categoría?',
+        cargarCategoriasMedicamentos
+    );
 }
 
 async function cargarMedicamentos() {
@@ -2598,12 +2625,13 @@ async function guardarMedicamentos() {
 }
 
 async function eliminarMedicamento(id) {
-    if (!confirm('¿Desea eliminar este medicamento?')) return;
-    try {
-        const res = await fetch(`${API_LOCAL}/medicamentos/${id}/`, 
-            { method: 'DELETE', headers: getAuthHeaders() });
-        if (res.ok) { cargarMedicamentos(); cargarDashboard(); }
-    } catch (e) { console.error(e); }
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/medicamentos/${id}/`,
+        '¿Desea eliminar este medicamento?',
+        async () => {
+            await Promise.all([cargarMedicamentos(), cargarDashboard()]);
+        }
+    );
 }
 
 // ==========================================
@@ -2758,12 +2786,13 @@ async function guardarResultadosExamenes() {
 }
 
 async function eliminarResultado(id) {
-    if (!confirm('¿Desea eliminar este resultado?')) return;
-    try {
-        const res = await fetch(`${API_LOCAL}/resultados-examenes/${id}/`,
-             { method: 'DELETE', headers: getAuthHeaders() });
-        if (res.ok) { cargarResultadosExamenes(); cargarDashboard(); }
-    } catch (e) { console.error(e); }
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/resultados-examenes/${id}/`,
+        '¿Desea eliminar este resultado?',
+        async () => {
+            await Promise.all([cargarResultadosExamenes(), cargarDashboard()]);
+        }
+    );
 }
 
 async function cargarExamenesLaboratorio() {
@@ -2894,10 +2923,11 @@ async function editarExamenLaboratorio(id) {
 }
 
 async function eliminarExamenLaboratorio(id) {
-    if (!confirm('¿Desea eliminar este examen de laboratorio?')) return;
-    const respuesta = await fetch(`${API_LOCAL}/examenes-de-laboratorio/${id}/`, 
-        { method: 'DELETE', headers: getAuthHeaders() });
-    if (respuesta.ok) cargarExamenesLaboratorio();
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/examenes-de-laboratorio/${id}/`,
+        '¿Desea eliminar este examen de laboratorio?',
+        cargarExamenesLaboratorio
+    );
 }
 
 async function editarSolicitudExamen(id) {
@@ -2905,10 +2935,11 @@ async function editarSolicitudExamen(id) {
 }
 
 async function eliminarSolicitudExamen(id) {
-    if (!confirm('¿Desea eliminar esta solicitud de examen?')) return;
-    const respuesta = await fetch(`${API_LOCAL}/solicitud-de-examenes/${id}/`,
-         { method: 'DELETE', headers: getAuthHeaders() });
-    if (respuesta.ok) cargarSolicitudesExamenes();
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/solicitud-de-examenes/${id}/`,
+        '¿Desea eliminar esta solicitud de examen?',
+        cargarSolicitudesExamenes
+    );
 }
 
 // ==========================================
@@ -3004,11 +3035,11 @@ async function guardarUsuarios() {
 }
 
 async function eliminarUsuario(id) {
-    if (!confirm('¿Desea eliminar este usuario?')) return;
-    try {
-        const res = await fetch(`${API_LOCAL}/usuarios/${id}/`, { method: 'DELETE', headers: getAuthHeaders() });
-        if (res.ok) { cargarUsuarios(); }
-    } catch (e) { console.error(e); }
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/usuarios/${id}/`,
+        '¿Desea eliminar este usuario?',
+        cargarUsuarios
+    );
 }
 
 // ==========================================
@@ -3667,9 +3698,11 @@ async function editarPatologiaCronica(id) {
 }
 
 async function eliminarPatologiaCronica(id) {
-    if (!confirm('¿Desea eliminar esta patología?')) return;
-    const respuesta = await fetch(`${API_LOCAL}/patologias-cronicas/${id}/`, { method: 'DELETE', headers: getAuthHeaders() });
-    if (respuesta.ok) cargarPatologiasCronicas();
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/patologias-cronicas/${id}/`,
+        '¿Desea eliminar esta patología?',
+        cargarPatologiasCronicas
+    );
 }
 
 async function editarPacientePatologia(id) {
@@ -3677,9 +3710,11 @@ async function editarPacientePatologia(id) {
 }
 
 async function eliminarPacientePatologia(id) {
-    if (!confirm('¿Desea eliminar esta relación?')) return;
-    const respuesta = await fetch(`${API_LOCAL}/paciente-patologia/${id}/`, { method: 'DELETE', headers: getAuthHeaders() });
-    if (respuesta.ok) cargarPacientesPatologias();
+    await eliminarRegistroCatalogo(
+        `${API_LOCAL}/paciente-patologia/${id}/`,
+        '¿Desea eliminar esta relación?',
+        cargarPacientesPatologias
+    );
 }
 
 async function editarCita(id) {

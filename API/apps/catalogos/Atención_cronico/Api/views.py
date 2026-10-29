@@ -2,14 +2,22 @@ import logging
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from django.utils import timezone
 from pymongo.errors import PyMongoError
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
+from rest_framework.exceptions import (
+    APIException,
+    PermissionDenied,
+    ValidationError,
+)
 from rest_framework.response import Response
 
-from Analytics.services import guardar_atencion_desde_modelo
+from Analytics.services import (
+    eliminar_atencion,
+    guardar_atencion_desde_modelo,
+)
 from apps.catalogos.patient_scope import (
     PatientScopedViewSetMixin,
     is_patient_user,
@@ -29,6 +37,15 @@ class AnalyticsStorageUnavailable(APIException):
         "Los cambios operacionales no se guardaron."
     )
     default_code = "analytics_storage_unavailable"
+
+
+class AtencionHasRelatedRecords(APIException):
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = (
+        "No se puede eliminar la atención porque tiene tratamientos o "
+        "solicitudes de examen vinculados."
+    )
+    default_code = "atencion_has_related_records"
 
 
 class AtencionCronicoViewSet(PatientScopedViewSetMixin, viewsets.ModelViewSet):
@@ -59,6 +76,23 @@ class AtencionCronicoViewSet(PatientScopedViewSetMixin, viewsets.ModelViewSet):
         except PyMongoError as error:
             logger.exception(
                 "No se pudo actualizar la atención analítica en MongoDB."
+            )
+            raise AnalyticsStorageUnavailable() from error
+
+    def perform_destroy(self, instance):
+        id_atencion = instance.pk
+        try:
+            with transaction.atomic():
+                super().perform_destroy(instance)
+                eliminar_atencion(id_atencion)
+        except ProtectedError as error:
+            raise AtencionHasRelatedRecords() from error
+        except ImproperlyConfigured as error:
+            logger.error("MongoDB no está configurado: %s", error)
+            raise AnalyticsStorageUnavailable() from error
+        except PyMongoError as error:
+            logger.exception(
+                "No se pudo eliminar la atención analítica en MongoDB."
             )
             raise AnalyticsStorageUnavailable() from error
 

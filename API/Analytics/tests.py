@@ -10,6 +10,7 @@ from .services import (
     guardar_atencion,
     guardar_atencion_desde_modelo,
     guardar_encuesta,
+    eliminar_atencion,
 )
 from .views import AnalyticsAtencionesView, EncuestaDetalleView, EncuestasView
 from bson import ObjectId
@@ -158,6 +159,14 @@ class EncuestaServiceTests(SimpleTestCase):
 
 
 class AnalyticsAtencionServiceTests(SimpleTestCase):
+    @patch("Analytics.services.get_atenciones_collection")
+    def test_deletes_atencion_document_by_operational_id(self, collection):
+        eliminar_atencion(28)
+
+        collection.return_value.delete_one.assert_called_once_with({
+            "id_atencion": 28,
+        })
+
     @patch("Analytics.services.get_atenciones_collection")
     def test_saves_validated_atencion_and_returns_mongo_id(self, collection):
         collection.return_value.update_one.return_value.upserted_id = "mongo-id"

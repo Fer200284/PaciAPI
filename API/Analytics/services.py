@@ -132,6 +132,12 @@ def guardar_atencion_desde_modelo(atencion):
     return _guardar_documento_atencion(documento)
 
 
+def eliminar_atencion(id_atencion):
+    return get_atenciones_collection().delete_one({
+        "id_atencion": id_atencion,
+    })
+
+
 def listar_atenciones(filtro=None):
     return list(
         get_atenciones_collection().find(
