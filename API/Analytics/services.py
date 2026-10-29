@@ -39,8 +39,46 @@ def eliminar_encuesta(filtro):
 def guardar_atencion(datos):
     documento = dict(datos)
     documento["id_fecha"] = documento["id_fecha"].isoformat()
-    resultado = get_atenciones_collection().insert_one(documento)
-    return str(resultado.inserted_id)
+    collection = get_atenciones_collection()
+    resultado = collection.update_one(
+        {"id_atencion": documento["id_atencion"]},
+        {"$set": documento},
+        upsert=True,
+    )
+    if resultado.upserted_id is not None:
+        return str(resultado.upserted_id)
+    existente = collection.find_one(
+        {"id_atencion": documento["id_atencion"]},
+        {"_id": 1},
+    )
+    return str(existente["_id"])
+
+
+def guardar_atencion_desde_modelo(atencion):
+    from apps.catalogos.Detalle_Tratamiento.models import DetalleTratamiento
+    from apps.catalogos.Solicitud_Examenes.models import SolicitudDeExamenes
+
+    paciente_patologia = atencion.id_paciente_patologia
+    return guardar_atencion({
+        "id_atencion": atencion.pk,
+        "id_fecha": atencion.fecha_atencion,
+        "id_paciente": paciente_patologia.id_paciente_id,
+        "id_medico": atencion.id_medico_id,
+        "id_patologia": paciente_patologia.id_patologia_cronica_id,
+        "asistio_val": int(atencion.asistio),
+        "duracion_consulta_minutos": 15,
+        "tiempo_espera_real_minutos": 10,
+        "receto_medicamento_flag": int(
+            DetalleTratamiento.objects.filter(
+                id_tratamiento__id_atencion_cronico_id=atencion.pk,
+            ).exists()
+        ),
+        "solicito_examen_flag": int(
+            SolicitudDeExamenes.objects.filter(
+                id_atencion_cronico_id=atencion.pk,
+            ).exists()
+        ),
+    })
 
 
 def listar_atenciones(filtro=None):

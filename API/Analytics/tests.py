@@ -152,17 +152,18 @@ class EncuestaServiceTests(SimpleTestCase):
 class AnalyticsAtencionServiceTests(SimpleTestCase):
     @patch("Analytics.services.get_atenciones_collection")
     def test_saves_validated_atencion_and_returns_mongo_id(self, collection):
-        collection.return_value.insert_one.return_value.inserted_id = "mongo-id"
+        collection.return_value.update_one.return_value.upserted_id = "mongo-id"
         serializer = AnalyticsAtencionSerializer(data=ATENCION)
         self.assertTrue(serializer.is_valid(), serializer.errors)
 
         result = guardar_atencion(serializer.validated_data)
 
         self.assertEqual(result, "mongo-id")
-        collection.return_value.insert_one.assert_called_once_with({
-            **ATENCION,
-            "id_fecha": "2026-10-26",
-        })
+        collection.return_value.update_one.assert_called_once_with(
+            {"id_atencion": ATENCION["id_atencion"]},
+            {"$set": {**ATENCION, "id_fecha": "2026-10-26"}},
+            upsert=True,
+        )
 
 
 class EncuestasApiTests(SimpleTestCase):

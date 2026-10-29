@@ -70,10 +70,13 @@ ejemplo `"2026-10-26"`.
 
 ## Bitácora analítica de atenciones
 
-La app móvil puede registrar una atención con `POST /api/analytics/atenciones/`
-y consultar los registros con `GET /api/analytics/atenciones/`. Los datos se
-guardan en `paciencare_db.bitacora_citas_atenciones`, usando la conexión MongoDB
-configurada en `MONGODB_URI`.
+Al crear una atención con `POST /api/atencion-cronico/`, el backend registra
+automáticamente su copia analítica en MongoDB. También puedes registrar o
+sincronizar una atención existente con `POST /api/analytics/atenciones/` y
+consultar los documentos con `GET /api/analytics/atenciones/`. Se guardan en
+`paciencare_db.bitacora_citas_atenciones`, usando la conexión MongoDB
+configurada en `MONGODB_URI`. La sincronización usa `id_atencion` para no crear
+documentos duplicados si se reintenta.
 
 Ejemplo de `POST`:
 
