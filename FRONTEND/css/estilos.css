@@ -1278,6 +1278,18 @@ body.formulario-bloqueado {
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
+.seguimiento-atencion-finalizada {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    color: #166534;
+    background: #dcfce7;
+    border: 1px solid #86efac;
+    border-radius: 6px;
+    cursor: default;
+}
+
 .acciones-atencion {
     display: flex;
     flex-wrap: wrap;

@@ -1771,6 +1771,8 @@ function renderSeguimientoAtencion(atencion) {
         accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'iniciar-consulta', this)">Iniciar consulta</button>`;
     } else if (!atencion.fecha_hora_fin_consulta) {
         accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'finalizar-consulta', this)">Finalizar consulta</button>`;
+    } else {
+        accion = '<span class="btn btn-sm seguimiento-atencion-finalizada" role="status">✓ Finalizó</span>';
     }
 
     return `
