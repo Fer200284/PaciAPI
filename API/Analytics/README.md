@@ -72,7 +72,7 @@ ejemplo `"2026-10-26"`.
 
 La app móvil puede registrar una atención con `POST /api/analytics/atenciones/`
 y consultar los registros con `GET /api/analytics/atenciones/`. Los datos se
-guardan en `paciencare_dw.bitacora_citas_atenciones`, usando la conexión MongoDB
+guardan en `paciencare_db.bitacora_citas_atenciones`, usando la conexión MongoDB
 configurada en `MONGODB_URI`.
 
 Ejemplo de `POST`:

@@ -20,4 +20,4 @@ def get_encuestas_collection():
 
 
 def get_atenciones_collection():
-    return get_mongo_client()["paciencare_dw"]["bitacora_citas_atenciones"]
+    return get_mongo_client()["paciencare_db"]["bitacora_citas_atenciones"]
