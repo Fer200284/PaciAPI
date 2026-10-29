@@ -76,7 +76,8 @@ sincronizar una atención existente con `POST /api/analytics/atenciones/` y
 consultar los documentos con `GET /api/analytics/atenciones/`. Se guardan en
 `paciencare_db.bitacora_citas_atenciones`, usando la conexión MongoDB
 configurada en `MONGODB_URI`. La sincronización usa `id_atencion` para no crear
-documentos duplicados si se reintenta.
+documentos duplicados si se reintenta. Las ediciones con `PUT` o `PATCH` a
+`/api/atencion-cronico/{id}/` también sincronizan los campos operacionales.
 
 Ejemplo de `POST`:
 
@@ -105,8 +106,15 @@ exámenes se calculan desde los registros operacionales de tratamientos y
 solicitudes; no se toma como fuente de verdad el valor enviado por la app.
 
 `duracion_consulta_minutos` y `tiempo_espera_real_minutos` son enteros no
-negativos (por defecto `15` y `10`). `asistio_val` acepta `-1`, `0` o `1`;
-los flags aceptan `0` o `1`. `id_fecha` debe tener formato `AAAA-MM-DD`.
+negativos o `null` cuando no se midieron. La creación automática no inventa
+esos valores: los deja en `null`. `asistio_val` acepta `-1`, `0` o `1`; los
+flags aceptan `0` o `1`. `id_fecha` debe tener formato `AAAA-MM-DD`.
 Gerencia puede consultar todas las atenciones y Paciente únicamente las de su
 ficha. `id_atencion`, `id_paciente`, `id_medico` e `id_patologia` deben ser los
 IDs reales de los registros operacionales, no IDs de cuentas de usuario.
+
+El modelo operacional actual no registra la hora de llegada ni el inicio y
+fin de la consulta. Por eso no se puede calcular todavía la espera ni la
+duración reales; esos campos solo deben llenarse cuando la app o el sistema
+capture esos tiempos. Los valores `15` y `10` que se guardaron antes de este
+cambio eran valores de ejemplo y no mediciones reales.

@@ -38,6 +38,28 @@ class AtencionCronicoViewSetTests(SimpleTestCase):
         "apps.catalogos.Atención_cronico.Api.views.transaction.atomic",
         return_value=nullcontext(),
     )
+    def test_update_synchronizes_edited_operational_record(
+        self,
+        atomic,
+        guardar_analitica,
+    ):
+        atencion = SimpleNamespace(pk=28)
+        serializer = Mock()
+        serializer.instance = atencion
+        view = AtencionCronicoViewSet()
+
+        view.perform_update(serializer)
+
+        serializer.save.assert_called_once_with()
+        guardar_analitica.assert_called_once_with(atencion)
+
+    @patch(
+        "apps.catalogos.Atención_cronico.Api.views.guardar_atencion_desde_modelo"
+    )
+    @patch(
+        "apps.catalogos.Atención_cronico.Api.views.transaction.atomic",
+        return_value=nullcontext(),
+    )
     def test_create_fails_explicitly_when_analytics_storage_is_unavailable(
         self,
         atomic,

@@ -98,7 +98,7 @@ class EncuestaSerializerTests(SimpleTestCase):
 
 
 class AnalyticsAtencionSerializerTests(SimpleTestCase):
-    def test_accepts_iso_date_and_applies_defaults(self):
+    def test_accepts_iso_date_without_inventing_unmeasured_times(self):
         serializer = AnalyticsAtencionSerializer(data={
             key: value
             for key, value in ATENCION.items()
@@ -114,8 +114,25 @@ class AnalyticsAtencionSerializerTests(SimpleTestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertEqual(serializer.validated_data["id_fecha"], date(2026, 10, 26))
         self.assertEqual(serializer.validated_data["asistio_val"], 1)
-        self.assertEqual(serializer.validated_data["duracion_consulta_minutos"], 15)
-        self.assertEqual(serializer.validated_data["tiempo_espera_real_minutos"], 10)
+        self.assertNotIn(
+            "duracion_consulta_minutos",
+            serializer.validated_data,
+        )
+        self.assertNotIn(
+            "tiempo_espera_real_minutos",
+            serializer.validated_data,
+        )
+
+    def test_accepts_unknown_times_as_null(self):
+        serializer = AnalyticsAtencionSerializer(data={
+            **ATENCION,
+            "duracion_consulta_minutos": None,
+            "tiempo_espera_real_minutos": None,
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertIsNone(serializer.validated_data["duracion_consulta_minutos"])
+        self.assertIsNone(serializer.validated_data["tiempo_espera_real_minutos"])
 
     def test_rejects_flags_outside_zero_to_one(self):
         serializer = AnalyticsAtencionSerializer(data={

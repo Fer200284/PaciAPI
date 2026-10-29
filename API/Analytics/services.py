@@ -36,13 +36,19 @@ def eliminar_encuesta(filtro):
     return get_encuestas_collection().delete_one(filtro)
 
 
-def guardar_atencion(datos):
-    documento = dict(datos)
-    documento["id_fecha"] = documento["id_fecha"].isoformat()
+def _guardar_documento_atencion(documento, valores_iniciales=None):
     collection = get_atenciones_collection()
+    campos_iniciales = {
+        campo: valor
+        for campo, valor in (valores_iniciales or {}).items()
+        if campo not in documento
+    }
+    cambios = {"$set": documento}
+    if campos_iniciales:
+        cambios["$setOnInsert"] = campos_iniciales
     resultado = collection.update_one(
         {"id_atencion": documento["id_atencion"]},
-        {"$set": documento},
+        cambios,
         upsert=True,
     )
     if resultado.upserted_id is not None:
@@ -54,20 +60,24 @@ def guardar_atencion(datos):
     return str(existente["_id"])
 
 
+def guardar_atencion(datos):
+    documento = dict(datos)
+    documento["id_fecha"] = documento["id_fecha"].isoformat()
+    return _guardar_documento_atencion(documento)
+
+
 def guardar_atencion_desde_modelo(atencion):
     from apps.catalogos.Detalle_Tratamiento.models import DetalleTratamiento
     from apps.catalogos.Solicitud_Examenes.models import SolicitudDeExamenes
 
     paciente_patologia = atencion.id_paciente_patologia
-    return guardar_atencion({
+    documento = {
         "id_atencion": atencion.pk,
         "id_fecha": atencion.fecha_atencion,
         "id_paciente": paciente_patologia.id_paciente_id,
         "id_medico": atencion.id_medico_id,
         "id_patologia": paciente_patologia.id_patologia_cronica_id,
         "asistio_val": int(atencion.asistio),
-        "duracion_consulta_minutos": 15,
-        "tiempo_espera_real_minutos": 10,
         "receto_medicamento_flag": int(
             DetalleTratamiento.objects.filter(
                 id_tratamiento__id_atencion_cronico_id=atencion.pk,
@@ -78,7 +88,15 @@ def guardar_atencion_desde_modelo(atencion):
                 id_atencion_cronico_id=atencion.pk,
             ).exists()
         ),
-    })
+    }
+    documento["id_fecha"] = documento["id_fecha"].isoformat()
+    return _guardar_documento_atencion(
+        documento,
+        {
+            "duracion_consulta_minutos": None,
+            "tiempo_espera_real_minutos": None,
+        },
+    )
 
 
 def listar_atenciones(filtro=None):

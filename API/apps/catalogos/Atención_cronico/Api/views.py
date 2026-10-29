@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 class AnalyticsStorageUnavailable(APIException):
     status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     default_detail = (
-        "No se pudo guardar la atención analítica. La atención no fue creada."
+        "No se pudo sincronizar la atención con MongoDB. "
+        "Los cambios operacionales no se guardaron."
     )
     default_code = "analytics_storage_unavailable"
 
@@ -39,4 +40,18 @@ class AtencionCronicoViewSet(PatientScopedViewSetMixin, viewsets.ModelViewSet):
             raise AnalyticsStorageUnavailable() from error
         except PyMongoError as error:
             logger.exception("No se pudo guardar la atención analítica en MongoDB.")
+            raise AnalyticsStorageUnavailable() from error
+
+    def perform_update(self, serializer):
+        try:
+            with transaction.atomic():
+                super().perform_update(serializer)
+                guardar_atencion_desde_modelo(serializer.instance)
+        except ImproperlyConfigured as error:
+            logger.error("MongoDB no está configurado: %s", error)
+            raise AnalyticsStorageUnavailable() from error
+        except PyMongoError as error:
+            logger.exception(
+                "No se pudo actualizar la atención analítica en MongoDB."
+            )
             raise AnalyticsStorageUnavailable() from error

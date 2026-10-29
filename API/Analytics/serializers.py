@@ -70,8 +70,16 @@ class AnalyticsAtencionSerializer(serializers.Serializer):
     id_medico = serializers.IntegerField(min_value=1)
     id_patologia = serializers.IntegerField(min_value=1)
     asistio_val = serializers.IntegerField(min_value=-1, max_value=1, default=1)
-    duracion_consulta_minutos = serializers.IntegerField(min_value=0, default=15)
-    tiempo_espera_real_minutos = serializers.IntegerField(min_value=0, default=10)
+    duracion_consulta_minutos = serializers.IntegerField(
+        min_value=0,
+        required=False,
+        allow_null=True,
+    )
+    tiempo_espera_real_minutos = serializers.IntegerField(
+        min_value=0,
+        required=False,
+        allow_null=True,
+    )
     receto_medicamento_flag = serializers.IntegerField(
         min_value=0,
         max_value=1,
