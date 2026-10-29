@@ -67,3 +67,43 @@ Las puntuaciones se validan entre 1 y 5, el tiempo de espera como valor entero
 no negativo y la resolución de dudas como `0` o `1`. `id_fecha` debe ser una
 fecha válida con formato `AAAA-MM-DD`; MongoDB la almacena como texto, por
 ejemplo `"2026-10-26"`.
+
+## Bitácora analítica de atenciones
+
+La app móvil puede registrar una atención con `POST /api/analytics/atenciones/`
+y consultar los registros con `GET /api/analytics/atenciones/`. Los datos se
+guardan en `paciencare_dw.bitacora_citas_atenciones`, usando la conexión MongoDB
+configurada en `MONGODB_URI`.
+
+Ejemplo de `POST`:
+
+```json
+{
+  "id_atencion": 28,
+  "id_fecha": "2026-10-26",
+  "id_paciente": 102,
+  "id_medico": 14,
+  "id_patologia": 12,
+  "asistio_val": 1,
+  "duracion_consulta_minutos": 25,
+  "tiempo_espera_real_minutos": 10,
+  "receto_medicamento_flag": 1,
+  "solicito_examen_flag": 0
+}
+```
+
+El `POST` solo está disponible para cuentas Paciente y comprueba que la
+atención exista, pertenezca a la ficha vinculada a la cuenta y coincidan
+paciente, médico, patología y fecha. También verifica que `asistio_val` sea
+compatible con el campo de asistencia de la atención. El modelo operacional
+actual no distingue entre inasistencia y cancelación, por lo que `-1` solo se
+acepta para una atención que no figure como asistida. Los flags de receta y
+exámenes se calculan desde los registros operacionales de tratamientos y
+solicitudes; no se toma como fuente de verdad el valor enviado por la app.
+
+`duracion_consulta_minutos` y `tiempo_espera_real_minutos` son enteros no
+negativos (por defecto `15` y `10`). `asistio_val` acepta `-1`, `0` o `1`;
+los flags aceptan `0` o `1`. `id_fecha` debe tener formato `AAAA-MM-DD`.
+Gerencia puede consultar todas las atenciones y Paciente únicamente las de su
+ficha. `id_atencion`, `id_paciente`, `id_medico` e `id_patologia` deben ser los
+IDs reales de los registros operacionales, no IDs de cuentas de usuario.

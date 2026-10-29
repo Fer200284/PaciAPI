@@ -17,3 +17,7 @@ def get_mongo_client():
 
 def get_encuestas_collection():
     return get_mongo_client()["paciencare_db"]["encuestas_pacientes"]
+
+
+def get_atenciones_collection():
+    return get_mongo_client()["paciencare_dw"]["bitacora_citas_atenciones"]

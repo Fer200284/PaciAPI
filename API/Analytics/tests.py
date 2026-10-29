@@ -5,9 +5,9 @@ from unittest.mock import patch
 from django.test import SimpleTestCase
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from .serializers import EncuestaSerializer
-from .services import guardar_encuesta
-from .views import EncuestaDetalleView, EncuestasView
+from .serializers import AnalyticsAtencionSerializer, EncuestaSerializer
+from .services import guardar_atencion, guardar_encuesta
+from .views import AnalyticsAtencionesView, EncuestaDetalleView, EncuestasView
 from bson import ObjectId
 
 
@@ -23,6 +23,19 @@ ENCUESTA = {
     "score_consulta_doctor": 5,
     "resolucion_dudas_val": 1,
     "comentario": "La atención fue muy buena.",
+}
+
+ATENCION = {
+    "id_atencion": 28,
+    "id_fecha": "2026-10-26",
+    "id_paciente": 102,
+    "id_medico": 14,
+    "id_patologia": 12,
+    "asistio_val": 1,
+    "duracion_consulta_minutos": 25,
+    "tiempo_espera_real_minutos": 10,
+    "receto_medicamento_flag": 1,
+    "solicito_examen_flag": 0,
 }
 
 
@@ -84,6 +97,45 @@ class EncuestaSerializerTests(SimpleTestCase):
         self.assertIn("id_fecha", serializer.errors)
 
 
+class AnalyticsAtencionSerializerTests(SimpleTestCase):
+    def test_accepts_iso_date_and_applies_defaults(self):
+        serializer = AnalyticsAtencionSerializer(data={
+            key: value
+            for key, value in ATENCION.items()
+            if key not in {
+                "asistio_val",
+                "duracion_consulta_minutos",
+                "tiempo_espera_real_minutos",
+                "receto_medicamento_flag",
+                "solicito_examen_flag",
+            }
+        })
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["id_fecha"], date(2026, 10, 26))
+        self.assertEqual(serializer.validated_data["asistio_val"], 1)
+        self.assertEqual(serializer.validated_data["duracion_consulta_minutos"], 15)
+        self.assertEqual(serializer.validated_data["tiempo_espera_real_minutos"], 10)
+
+    def test_rejects_flags_outside_zero_to_one(self):
+        serializer = AnalyticsAtencionSerializer(data={
+            **ATENCION,
+            "solicito_examen_flag": 2,
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("solicito_examen_flag", serializer.errors)
+
+    def test_rejects_negative_duration(self):
+        serializer = AnalyticsAtencionSerializer(data={
+            **ATENCION,
+            "duracion_consulta_minutos": -1,
+        })
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("duracion_consulta_minutos", serializer.errors)
+
+
 class EncuestaServiceTests(SimpleTestCase):
     @patch("Analytics.services.get_encuestas_collection")
     def test_saves_validated_survey_and_returns_mongo_id(self, collection):
@@ -95,6 +147,22 @@ class EncuestaServiceTests(SimpleTestCase):
 
         self.assertEqual(result, "mongo-id")
         collection.return_value.insert_one.assert_called_once_with(ENCUESTA)
+
+
+class AnalyticsAtencionServiceTests(SimpleTestCase):
+    @patch("Analytics.services.get_atenciones_collection")
+    def test_saves_validated_atencion_and_returns_mongo_id(self, collection):
+        collection.return_value.insert_one.return_value.inserted_id = "mongo-id"
+        serializer = AnalyticsAtencionSerializer(data=ATENCION)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+
+        result = guardar_atencion(serializer.validated_data)
+
+        self.assertEqual(result, "mongo-id")
+        collection.return_value.insert_one.assert_called_once_with({
+            **ATENCION,
+            "id_fecha": "2026-10-26",
+        })
 
 
 class EncuestasApiTests(SimpleTestCase):
@@ -174,6 +242,123 @@ class EncuestasApiTests(SimpleTestCase):
 
         self.assertEqual(response.status_code, 403)
         guardar_encuesta.assert_not_called()
+
+class AnalyticsAtencionesApiTests(SimpleTestCase):
+    @patch("Analytics.views.SolicitudDeExamenes.objects.filter")
+    @patch("Analytics.views.DetalleTratamiento.objects.filter")
+    @patch("Analytics.views.AtencionCronico.objects.filter")
+    @patch("Analytics.views.guardar_atencion", return_value="mongo-object-id")
+    def test_patient_can_submit_own_atencion(
+        self,
+        guardar,
+        atenciones,
+        tratamientos,
+        solicitudes,
+    ):
+        patient = SimpleNamespace(is_authenticated=True, rol="Paciente")
+        atenciones.return_value.values.return_value.first.return_value = {
+            "fecha_atencion": date(2026, 10, 26),
+            "id_paciente_patologia__id_paciente_id": 102,
+            "id_paciente_patologia__id_patologia_cronica_id": 12,
+            "id_medico_id": 14,
+            "asistio": True,
+        }
+        tratamientos.return_value.exists.return_value = True
+        solicitudes.return_value.exists.return_value = False
+        request = APIRequestFactory().post(
+            "/api/analytics/atenciones/",
+            {
+                **ATENCION,
+                "receto_medicamento_flag": 0,
+                "solicito_examen_flag": 1,
+            },
+            format="json",
+        )
+        force_authenticate(request, user=patient)
+
+        response = AnalyticsAtencionesView.as_view()(request)
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["id"], "mongo-object-id")
+        atenciones.assert_called_once_with(
+            pk=ATENCION["id_atencion"],
+            id_paciente_patologia__id_paciente__usuario=patient,
+        )
+        guardar.assert_called_once_with({
+            **ATENCION,
+            "id_fecha": date(2026, 10, 26),
+        })
+
+    @patch("Analytics.views.guardar_atencion")
+    @patch("Analytics.views.AtencionCronico.objects.filter")
+    def test_patient_cannot_submit_ids_that_do_not_match_attention(
+        self,
+        atenciones,
+        guardar,
+    ):
+        patient = SimpleNamespace(is_authenticated=True, rol="Paciente")
+        atenciones.return_value.values.return_value.first.return_value = {
+            "fecha_atencion": date(2026, 10, 26),
+            "id_paciente_patologia__id_paciente_id": 102,
+            "id_paciente_patologia__id_patologia_cronica_id": 12,
+            "id_medico_id": 14,
+            "asistio": True,
+        }
+        request = APIRequestFactory().post(
+            "/api/analytics/atenciones/",
+            {**ATENCION, "id_medico": 99},
+            format="json",
+        )
+        force_authenticate(request, user=patient)
+
+        response = AnalyticsAtencionesView.as_view()(request)
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("id_medico", response.data)
+        guardar.assert_not_called()
+
+    @patch("Analytics.views.guardar_atencion")
+    def test_non_patient_cannot_submit_atencion(self, guardar):
+        manager = SimpleNamespace(is_authenticated=True, rol="Gerencia")
+        request = APIRequestFactory().post(
+            "/api/analytics/atenciones/",
+            ATENCION,
+            format="json",
+        )
+        force_authenticate(request, user=manager)
+
+        response = AnalyticsAtencionesView.as_view()(request)
+
+        self.assertEqual(response.status_code, 403)
+        guardar.assert_not_called()
+
+    @patch("Analytics.views.listar_atenciones")
+    @patch("Analytics.views.Pacientes.objects.filter")
+    def test_patient_lists_only_own_atenciones(self, pacientes, listar):
+        patient = SimpleNamespace(is_authenticated=True, rol="Paciente")
+        pacientes.return_value.values_list.return_value.first.return_value = 102
+        object_id = ObjectId("671d45a201b2c00000000007")
+        listar.return_value = [{"_id": object_id, "id_paciente": 102}]
+        request = APIRequestFactory().get("/api/analytics/atenciones/")
+        force_authenticate(request, user=patient)
+
+        response = AnalyticsAtencionesView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[0]["id"], str(object_id))
+        listar.assert_called_once_with({"id_paciente": 102})
+
+    @patch("Analytics.views.listar_atenciones")
+    def test_gerencia_lists_all_atenciones(self, listar):
+        manager = SimpleNamespace(is_authenticated=True, rol="Gerencia")
+        listar.return_value = []
+        request = APIRequestFactory().get("/api/analytics/atenciones/")
+        force_authenticate(request, user=manager)
+
+        response = AnalyticsAtencionesView.as_view()(request)
+
+        self.assertEqual(response.status_code, 200)
+        listar.assert_called_once_with({})
 
     @patch("Analytics.views.Pacientes.objects.filter")
     @patch("Analytics.views.obtener_encuesta")
