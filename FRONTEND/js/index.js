@@ -1742,7 +1742,7 @@ async function cargarCitasMedicas() {
                 ✏️ Editar</button><button 
                 class="btn btn-sm btn-peligro"
                  onclick="eliminarCita(${c.id})">
-                 🗑️ Eliminar</button>${renderSeguimientoAtencion(c)}</div></td>
+                 🗑️ Eliminar</button>${renderSeguimientoAtencion(c)}${c.fecha_proxima_cita ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(c.id)}, this)">Cancelar próxima cita</button>` : ''}</div></td>
             `;
             tbody.appendChild(tr);
         });
@@ -2405,6 +2405,44 @@ async function eliminarCita(id) {
         const res = await fetch(`${API_LOCAL}/atencion-cronico/${id}/`, { method: 'DELETE', headers: getAuthHeaders() });
         if (res.ok) { cargarCitasMedicas(); cargarDashboard(); }
     } catch (e) { console.error(e); }
+}
+
+async function cancelarProximaCita(id, boton) {
+    if (!Number.isInteger(id) || id < 1) {
+        alert('No se pudo identificar la atención.');
+        return;
+    }
+
+    if (!confirm('¿Desea cancelar únicamente la próxima cita programada? La atención actual se conservará.')) {
+        return;
+    }
+
+    const textoOriginal = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = 'Cancelando...';
+    try {
+        const respuesta = await fetch(`${API_LOCAL}/atencion-cronico/${id}/`, {
+            method: 'PATCH',
+            headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({
+                fecha_proxima_cita: null,
+                hora_proxima_cita: null
+            })
+        });
+        if (!respuesta.ok) {
+            const error = await respuesta.json().catch(() => null);
+            const detalle = error?.detail
+                || Object.values(error || {}).flat().join(' ')
+                || `El servidor respondió ${respuesta.status}.`;
+            throw new Error(detalle);
+        }
+        await cargarCitasMedicas();
+    } catch (error) {
+        console.error('No se pudo cancelar la próxima cita:', error);
+        alert(error.message || 'No se pudo cancelar la próxima cita.');
+        boton.disabled = false;
+        boton.textContent = textoOriginal;
+    }
 }
 
 // ==========================================
