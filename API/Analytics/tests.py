@@ -219,7 +219,18 @@ class AnalyticsAtencionServiceTests(SimpleTestCase):
         documento = collection.return_value.update_one.call_args.args[1]["$set"]
         self.assertEqual(documento["tiempo_espera_real_minutos"], 40)
         self.assertEqual(documento["duracion_consulta_minutos"], 25)
-        self.assertEqual(documento["fecha_hora_llegada"], atencion.fecha_hora_llegada)
+        self.assertEqual(
+            documento["fecha_hora_llegada"],
+            "2026-10-26 03:50:00 AM",
+        )
+        self.assertEqual(
+            documento["fecha_hora_inicio_consulta"],
+            "2026-10-26 04:30:00 AM",
+        )
+        self.assertEqual(
+            documento["fecha_hora_fin_consulta"],
+            "2026-10-26 04:55:00 AM",
+        )
         self.assertEqual(documento["receto_medicamento_flag"], 1)
         self.assertEqual(documento["solicito_examen_flag"], 0)
 

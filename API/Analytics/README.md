@@ -135,3 +135,8 @@ las acciones de inicio y fin están disponibles para Administrador y Gerencia.
 Cada momento solo se puede marcar una vez y las marcas se sincronizan con
 MongoDB. La API calcula la espera entre llegada e inicio, y la duración entre
 inicio y fin; antes de contar con ambas marcas, los valores quedan como `null`.
+MongoDB guarda las marcas como texto legible en horario de Managua,
+`AAAA-MM-DD hh:mm:ss AM/PM` (por ejemplo, `2026-10-28 11:51:33 PM`). Los
+cálculos se hacen usando las fechas reales almacenadas en SQL antes de
+formatearlas para MongoDB. Los documentos antiguos solo cambian a este formato
+cuando su atención vuelva a sincronizarse.

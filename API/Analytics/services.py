@@ -1,4 +1,12 @@
+from django.utils import timezone
+
 from .mongo_client import get_atenciones_collection, get_encuestas_collection
+
+
+def _fecha_hora_local_legible(valor):
+    if valor is None:
+        return None
+    return timezone.localtime(valor).strftime("%Y-%m-%d %I:%M:%S %p")
 
 
 def guardar_encuesta(datos):
@@ -98,9 +106,15 @@ def guardar_atencion_desde_modelo(atencion):
         "id_medico": atencion.id_medico_id,
         "id_patologia": paciente_patologia.id_patologia_cronica_id,
         "asistio_val": int(atencion.asistio),
-        "fecha_hora_llegada": atencion.fecha_hora_llegada,
-        "fecha_hora_inicio_consulta": atencion.fecha_hora_inicio_consulta,
-        "fecha_hora_fin_consulta": atencion.fecha_hora_fin_consulta,
+        "fecha_hora_llegada": _fecha_hora_local_legible(
+            atencion.fecha_hora_llegada
+        ),
+        "fecha_hora_inicio_consulta": _fecha_hora_local_legible(
+            atencion.fecha_hora_inicio_consulta
+        ),
+        "fecha_hora_fin_consulta": _fecha_hora_local_legible(
+            atencion.fecha_hora_fin_consulta
+        ),
         "tiempo_espera_real_minutos": tiempo_espera,
         "duracion_consulta_minutos": duracion_consulta,
         "receto_medicamento_flag": int(
