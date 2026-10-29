@@ -1252,15 +1252,37 @@ body.formulario-bloqueado {
 }
 
 .seguimiento-atencion {
-    display: flex;
-    min-width: 180px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
+    white-space: normal;
 }
 
-.seguimiento-atencion .btn {
-    margin-top: 4px;
+.seguimiento-atencion summary {
+    display: inline-block;
+    cursor: pointer;
+    list-style: none;
+}
+
+.seguimiento-atencion summary::-webkit-details-marker {
+    display: none;
+}
+
+.seguimiento-atencion-detalle {
+    display: grid;
+    min-width: 210px;
+    gap: 8px;
+    padding: 12px;
+    color: var(--text-color, #1f2c3d);
+    text-align: left;
+    background: #fff;
+    border: 1px solid var(--border-color, #dfe4ea);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.acciones-atencion {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
 }
 
 #tablaExamenesLaboratorio th,

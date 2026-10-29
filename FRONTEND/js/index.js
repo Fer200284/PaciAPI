@@ -1735,15 +1735,14 @@ async function cargarCitasMedicas() {
                 <td>${textValue(c, 'presion_arterial') || '-'}</td>
                 <td>${formatDate(textValue(c, 'fecha_proxima_cita')) || '-'}${textValue(c, 'hora_proxima_cita') ? `<br>${formatHoraAmPm(textValue(c, 'hora_proxima_cita'))}` : ''}</td>
                 <td>${isTrue(textValue(c, 'asistio')) ? '✔ Sí' : '❌ No'}</td>
-                <td>${renderSeguimientoAtencion(c)}</td>
                 <td>${isTrue(textValue(c, 'consulta_especializada')) ? '✔ Sí' : '❌ No'}</td>
                 <td>${textValue(c, 'observaciones') || '-'}</td>
                 <td>${formatDateTime(textValue(c, 'fecha_creacion'))}</td>
-                <td><button class="btn btn-sm btn-secundario" onclick="editarCita(${c.id})">
+                <td><div class="acciones-atencion"><button class="btn btn-sm btn-secundario" onclick="editarCita(${c.id})">
                 ✏️ Editar</button><button 
                 class="btn btn-sm btn-peligro"
                  onclick="eliminarCita(${c.id})">
-                 🗑️ Eliminar</button></td>
+                 🗑️ Eliminar</button>${renderSeguimientoAtencion(c)}</div></td>
             `;
             tbody.appendChild(tr);
         });
@@ -1764,23 +1763,22 @@ function renderSeguimientoAtencion(atencion) {
             `<div><strong>${etiqueta}:</strong> ${formatFechaHoraAmPm(valor) || 'Pendiente'}</div>`
         ))
         .join('');
-    const acciones = [];
+    let accion = '';
 
     if (!atencion.fecha_hora_llegada) {
-        acciones.push(
-            `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'marcar-llegada', this)">Marcar llegada</button>`
-        );
+        accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'marcar-llegada', this)">Marcar llegada</button>`;
     } else if (!atencion.fecha_hora_inicio_consulta) {
-        acciones.push(
-            `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'iniciar-consulta', this)">Iniciar consulta</button>`
-        );
+        accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'iniciar-consulta', this)">Iniciar consulta</button>`;
     } else if (!atencion.fecha_hora_fin_consulta) {
-        acciones.push(
-            `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'finalizar-consulta', this)">Finalizar consulta</button>`
-        );
+        accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'finalizar-consulta', this)">Finalizar consulta</button>`;
     }
 
-    return `<div class="seguimiento-atencion">${horarios}${acciones.join('')}</div>`;
+    return `
+        <details class="seguimiento-atencion">
+            <summary class="btn btn-sm btn-secundario">⏱ Horario</summary>
+            <div class="seguimiento-atencion-detalle">${horarios}${accion}</div>
+        </details>
+    `;
 }
 
 async function marcarMomentoAtencion(id, accion, boton) {
