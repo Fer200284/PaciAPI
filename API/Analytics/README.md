@@ -118,3 +118,20 @@ fin de la consulta. Por eso no se puede calcular todavía la espera ni la
 duración reales; esos campos solo deben llenarse cuando la app o el sistema
 capture esos tiempos. Los valores `15` y `10` que se guardaron antes de este
 cambio eran valores de ejemplo y no mediciones reales.
+
+### Registrar tiempos reales de atención
+
+La atención expone tres marcas de tiempo generadas por el servidor:
+
+- `POST /api/atencion-cronico/{id}/marcar-llegada/`: Paciente de esa atención o
+  personal autorizado registra la llegada. También marca `asistio=true`.
+- `POST /api/atencion-cronico/{id}/iniciar-consulta/`: personal autorizado
+  registra el inicio, después de la llegada.
+- `POST /api/atencion-cronico/{id}/finalizar-consulta/`: personal autorizado
+  registra el fin, después del inicio.
+
+Los roles actuales no incluyen uno específico para personal médico, así que
+las acciones de inicio y fin están disponibles para Administrador y Gerencia.
+Cada momento solo se puede marcar una vez y las marcas se sincronizan con
+MongoDB. La API calcula la espera entre llegada e inicio, y la duración entre
+inicio y fin; antes de contar con ambas marcas, los valores quedan como `null`.

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -6,7 +6,11 @@ from django.test import SimpleTestCase
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from .serializers import AnalyticsAtencionSerializer, EncuestaSerializer
-from .services import guardar_atencion, guardar_encuesta
+from .services import (
+    guardar_atencion,
+    guardar_atencion_desde_modelo,
+    guardar_encuesta,
+)
 from .views import AnalyticsAtencionesView, EncuestaDetalleView, EncuestasView
 from bson import ObjectId
 
@@ -123,35 +127,22 @@ class AnalyticsAtencionSerializerTests(SimpleTestCase):
             serializer.validated_data,
         )
 
-    def test_accepts_unknown_times_as_null(self):
+    def test_does_not_accept_client_supplied_time_measurements(self):
         serializer = AnalyticsAtencionSerializer(data={
             **ATENCION,
-            "duracion_consulta_minutos": None,
-            "tiempo_espera_real_minutos": None,
+            "duracion_consulta_minutos": 999,
+            "tiempo_espera_real_minutos": 999,
         })
 
         self.assertTrue(serializer.is_valid(), serializer.errors)
-        self.assertIsNone(serializer.validated_data["duracion_consulta_minutos"])
-        self.assertIsNone(serializer.validated_data["tiempo_espera_real_minutos"])
-
-    def test_rejects_flags_outside_zero_to_one(self):
-        serializer = AnalyticsAtencionSerializer(data={
-            **ATENCION,
-            "solicito_examen_flag": 2,
-        })
-
-        self.assertFalse(serializer.is_valid())
-        self.assertIn("solicito_examen_flag", serializer.errors)
-
-    def test_rejects_negative_duration(self):
-        serializer = AnalyticsAtencionSerializer(data={
-            **ATENCION,
-            "duracion_consulta_minutos": -1,
-        })
-
-        self.assertFalse(serializer.is_valid())
-        self.assertIn("duracion_consulta_minutos", serializer.errors)
-
+        self.assertNotIn(
+            "duracion_consulta_minutos",
+            serializer.validated_data,
+        )
+        self.assertNotIn(
+            "tiempo_espera_real_minutos",
+            serializer.validated_data,
+        )
 
 class EncuestaServiceTests(SimpleTestCase):
     @patch("Analytics.services.get_encuestas_collection")
@@ -178,9 +169,59 @@ class AnalyticsAtencionServiceTests(SimpleTestCase):
         self.assertEqual(result, "mongo-id")
         collection.return_value.update_one.assert_called_once_with(
             {"id_atencion": ATENCION["id_atencion"]},
-            {"$set": {**ATENCION, "id_fecha": "2026-10-26"}},
+            {"$set": {
+                "id_atencion": ATENCION["id_atencion"],
+                "id_fecha": "2026-10-26",
+                "id_paciente": ATENCION["id_paciente"],
+                "id_medico": ATENCION["id_medico"],
+                "id_patologia": ATENCION["id_patologia"],
+                "asistio_val": ATENCION["asistio_val"],
+                "receto_medicamento_flag": 1,
+                "solicito_examen_flag": 0,
+            }},
             upsert=True,
         )
+
+    @patch("Analytics.services.get_atenciones_collection")
+    @patch(
+        "apps.catalogos.Solicitud_Examenes.models.SolicitudDeExamenes.objects.filter"
+    )
+    @patch(
+        "apps.catalogos.Detalle_Tratamiento.models.DetalleTratamiento.objects.filter"
+    )
+    def test_calculates_wait_and_duration_from_recorded_timestamps(
+        self,
+        tratamientos,
+        solicitudes,
+        collection,
+    ):
+        inicio = datetime(2026, 10, 26, 10, 30, tzinfo=timezone.utc)
+        atencion = SimpleNamespace(
+            pk=28,
+            fecha_atencion=date(2026, 10, 26),
+            id_paciente_patologia=SimpleNamespace(
+                id_paciente_id=102,
+                id_patologia_cronica_id=12,
+            ),
+            id_medico_id=14,
+            asistio=True,
+            fecha_hora_llegada=inicio - timedelta(minutes=40),
+            fecha_hora_inicio_consulta=inicio,
+            fecha_hora_fin_consulta=inicio + timedelta(minutes=25),
+        )
+        tratamientos.return_value.exists.return_value = True
+        solicitudes.return_value.exists.return_value = False
+        collection.return_value.update_one.return_value.upserted_id = "mongo-id"
+
+        mongo_id = guardar_atencion_desde_modelo(atencion)
+
+        self.assertEqual(mongo_id, "mongo-id")
+        documento = collection.return_value.update_one.call_args.args[1]["$set"]
+        self.assertEqual(documento["tiempo_espera_real_minutos"], 40)
+        self.assertEqual(documento["duracion_consulta_minutos"], 25)
+        self.assertEqual(documento["fecha_hora_llegada"], atencion.fecha_hora_llegada)
+        self.assertEqual(documento["receto_medicamento_flag"], 1)
+        self.assertEqual(documento["solicito_examen_flag"], 0)
 
 
 class EncuestasApiTests(SimpleTestCase):
@@ -262,33 +303,36 @@ class EncuestasApiTests(SimpleTestCase):
         guardar_encuesta.assert_not_called()
 
 class AnalyticsAtencionesApiTests(SimpleTestCase):
-    @patch("Analytics.views.SolicitudDeExamenes.objects.filter")
-    @patch("Analytics.views.DetalleTratamiento.objects.filter")
-    @patch("Analytics.views.AtencionCronico.objects.filter")
-    @patch("Analytics.views.guardar_atencion", return_value="mongo-object-id")
+    @patch(
+        "Analytics.views.AtencionCronico.objects.select_related"
+    )
+    @patch(
+        "Analytics.views.guardar_atencion_desde_modelo",
+        return_value="mongo-object-id",
+    )
     def test_patient_can_submit_own_atencion(
         self,
         guardar,
         atenciones,
-        tratamientos,
-        solicitudes,
     ):
         patient = SimpleNamespace(is_authenticated=True, rol="Paciente")
-        atenciones.return_value.values.return_value.first.return_value = {
-            "fecha_atencion": date(2026, 10, 26),
-            "id_paciente_patologia__id_paciente_id": 102,
-            "id_paciente_patologia__id_patologia_cronica_id": 12,
-            "id_medico_id": 14,
-            "asistio": True,
-        }
-        tratamientos.return_value.exists.return_value = True
-        solicitudes.return_value.exists.return_value = False
+        atencion = SimpleNamespace(
+            pk=28,
+            fecha_atencion=date(2026, 10, 26),
+            id_paciente_patologia=SimpleNamespace(
+                id_paciente_id=102,
+                id_patologia_cronica_id=12,
+            ),
+            id_medico_id=14,
+            asistio=True,
+        )
+        atenciones.return_value.filter.return_value.first.return_value = atencion
         request = APIRequestFactory().post(
             "/api/analytics/atenciones/",
             {
                 **ATENCION,
-                "receto_medicamento_flag": 0,
-                "solicito_examen_flag": 1,
+                "duracion_consulta_minutos": 900,
+                "tiempo_espera_real_minutos": 500,
             },
             format="json",
         )
@@ -299,29 +343,34 @@ class AnalyticsAtencionesApiTests(SimpleTestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["id"], "mongo-object-id")
         atenciones.assert_called_once_with(
+            "id_paciente_patologia__id_paciente",
+            "id_paciente_patologia__id_patologia_cronica",
+        )
+        atenciones.return_value.filter.assert_called_once_with(
             pk=ATENCION["id_atencion"],
             id_paciente_patologia__id_paciente__usuario=patient,
         )
-        guardar.assert_called_once_with({
-            **ATENCION,
-            "id_fecha": date(2026, 10, 26),
-        })
+        guardar.assert_called_once_with(atencion)
 
-    @patch("Analytics.views.guardar_atencion")
-    @patch("Analytics.views.AtencionCronico.objects.filter")
+    @patch("Analytics.views.guardar_atencion_desde_modelo")
+    @patch("Analytics.views.AtencionCronico.objects.select_related")
     def test_patient_cannot_submit_ids_that_do_not_match_attention(
         self,
         atenciones,
         guardar,
     ):
         patient = SimpleNamespace(is_authenticated=True, rol="Paciente")
-        atenciones.return_value.values.return_value.first.return_value = {
-            "fecha_atencion": date(2026, 10, 26),
-            "id_paciente_patologia__id_paciente_id": 102,
-            "id_paciente_patologia__id_patologia_cronica_id": 12,
-            "id_medico_id": 14,
-            "asistio": True,
-        }
+        atenciones.return_value.filter.return_value.first.return_value = (
+            SimpleNamespace(
+                fecha_atencion=date(2026, 10, 26),
+                id_paciente_patologia=SimpleNamespace(
+                    id_paciente_id=102,
+                    id_patologia_cronica_id=12,
+                ),
+                id_medico_id=14,
+                asistio=True,
+            )
+        )
         request = APIRequestFactory().post(
             "/api/analytics/atenciones/",
             {**ATENCION, "id_medico": 99},
@@ -335,7 +384,7 @@ class AnalyticsAtencionesApiTests(SimpleTestCase):
         self.assertIn("id_medico", response.data)
         guardar.assert_not_called()
 
-    @patch("Analytics.views.guardar_atencion")
+    @patch("Analytics.views.guardar_atencion_desde_modelo")
     def test_non_patient_cannot_submit_atencion(self, guardar):
         manager = SimpleNamespace(is_authenticated=True, rol="Gerencia")
         request = APIRequestFactory().post(

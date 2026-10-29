@@ -22,6 +22,24 @@ class AtencionCronico(models.Model):
 
   fecha_atencion = models.DateField(db_column="FechaAtencion")
 
+  fecha_hora_llegada = models.DateTimeField(
+      blank=True,
+      null=True,
+      db_column="FechaHoraLlegada",
+  )
+
+  fecha_hora_inicio_consulta = models.DateTimeField(
+      blank=True,
+      null=True,
+      db_column="FechaHoraInicioConsulta",
+  )
+
+  fecha_hora_fin_consulta = models.DateTimeField(
+      blank=True,
+      null=True,
+      db_column="FechaHoraFinConsulta",
+  )
+
   # Restricción equivalente a CHECK (Peso > 0)
   peso = models.DecimalField(
       max_digits=5,

@@ -71,6 +71,26 @@ def guardar_atencion_desde_modelo(atencion):
     from apps.catalogos.Solicitud_Examenes.models import SolicitudDeExamenes
 
     paciente_patologia = atencion.id_paciente_patologia
+    tiempo_espera = None
+    if atencion.fecha_hora_llegada and atencion.fecha_hora_inicio_consulta:
+        tiempo_espera = int(
+            (
+                atencion.fecha_hora_inicio_consulta
+                - atencion.fecha_hora_llegada
+            ).total_seconds()
+            // 60
+        )
+
+    duracion_consulta = None
+    if atencion.fecha_hora_inicio_consulta and atencion.fecha_hora_fin_consulta:
+        duracion_consulta = int(
+            (
+                atencion.fecha_hora_fin_consulta
+                - atencion.fecha_hora_inicio_consulta
+            ).total_seconds()
+            // 60
+        )
+
     documento = {
         "id_atencion": atencion.pk,
         "id_fecha": atencion.fecha_atencion,
@@ -78,6 +98,11 @@ def guardar_atencion_desde_modelo(atencion):
         "id_medico": atencion.id_medico_id,
         "id_patologia": paciente_patologia.id_patologia_cronica_id,
         "asistio_val": int(atencion.asistio),
+        "fecha_hora_llegada": atencion.fecha_hora_llegada,
+        "fecha_hora_inicio_consulta": atencion.fecha_hora_inicio_consulta,
+        "fecha_hora_fin_consulta": atencion.fecha_hora_fin_consulta,
+        "tiempo_espera_real_minutos": tiempo_espera,
+        "duracion_consulta_minutos": duracion_consulta,
         "receto_medicamento_flag": int(
             DetalleTratamiento.objects.filter(
                 id_tratamiento__id_atencion_cronico_id=atencion.pk,
@@ -90,13 +115,7 @@ def guardar_atencion_desde_modelo(atencion):
         ),
     }
     documento["id_fecha"] = documento["id_fecha"].isoformat()
-    return _guardar_documento_atencion(
-        documento,
-        {
-            "duracion_consulta_minutos": None,
-            "tiempo_espera_real_minutos": None,
-        },
-    )
+    return _guardar_documento_atencion(documento)
 
 
 def listar_atenciones(filtro=None):
@@ -111,6 +130,9 @@ def listar_atenciones(filtro=None):
                 "id_medico": 1,
                 "id_patologia": 1,
                 "asistio_val": 1,
+                "fecha_hora_llegada": 1,
+                "fecha_hora_inicio_consulta": 1,
+                "fecha_hora_fin_consulta": 1,
                 "duracion_consulta_minutos": 1,
                 "tiempo_espera_real_minutos": 1,
                 "receto_medicamento_flag": 1,

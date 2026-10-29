@@ -6,6 +6,10 @@ class AtencionCronicoSerializer(
     PatientOwnedRelationsSerializerMixin,
     serializers.ModelSerializer,
 ):
+    fecha_hora_llegada = serializers.DateTimeField(read_only=True)
+    fecha_hora_inicio_consulta = serializers.DateTimeField(read_only=True)
+    fecha_hora_fin_consulta = serializers.DateTimeField(read_only=True)
+
     patient_owned_fields = {
         "id_paciente_patologia": "id_paciente__usuario",
     }

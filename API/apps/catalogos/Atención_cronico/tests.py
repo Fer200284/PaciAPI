@@ -4,11 +4,92 @@ from unittest.mock import Mock, patch
 
 from django.core.exceptions import ImproperlyConfigured
 from django.test import SimpleTestCase
+from rest_framework.exceptions import ValidationError
+from rest_framework.test import APIRequestFactory, force_authenticate
 
 from .Api.views import AnalyticsStorageUnavailable, AtencionCronicoViewSet
 
 
 class AtencionCronicoViewSetTests(SimpleTestCase):
+    @patch(
+        "apps.catalogos.Atención_cronico.Api.views.guardar_atencion_desde_modelo"
+    )
+    @patch(
+        "apps.catalogos.Atención_cronico.Api.views.transaction.atomic",
+        return_value=nullcontext(),
+    )
+    @patch.object(AtencionCronicoViewSet, "get_object")
+    @patch.object(AtencionCronicoViewSet, "get_serializer")
+    def test_patient_marks_arrival_and_syncs_it(
+        self,
+        get_serializer,
+        get_object,
+        atomic,
+        guardar_analitica,
+    ):
+        atencion = Mock()
+        atencion.fecha_hora_llegada = None
+        atencion.asistio = False
+        get_object.return_value = atencion
+        get_serializer.return_value.data = {
+            "fecha_hora_llegada": "2026-10-28T10:00:00-06:00",
+        }
+        patient = SimpleNamespace(is_authenticated=True, rol="Paciente")
+        request = APIRequestFactory().post(
+            "/api/atencion-cronico/28/marcar-llegada/",
+            {},
+            format="json",
+        )
+        force_authenticate(request, user=patient)
+
+        response = AtencionCronicoViewSet.as_view(
+            {"post": "marcar_llegada"}
+        )(request, pk="28")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(atencion.fecha_hora_llegada)
+        self.assertTrue(atencion.asistio)
+        atencion.save.assert_called_once_with(
+            update_fields=["fecha_hora_llegada", "asistio"]
+        )
+        guardar_analitica.assert_called_once_with(atencion)
+
+    @patch.object(AtencionCronicoViewSet, "get_object")
+    @patch(
+        "apps.catalogos.Atención_cronico.Api.views.transaction.atomic",
+        return_value=nullcontext(),
+    )
+    def test_cannot_start_consultation_before_arrival(
+        self,
+        atomic,
+        get_object,
+    ):
+        atencion = SimpleNamespace(
+            fecha_hora_inicio_consulta=None,
+            fecha_hora_llegada=None,
+        )
+        get_object.return_value = atencion
+        admin = SimpleNamespace(is_authenticated=True, rol="Administrador")
+        request = APIRequestFactory().post(
+            "/api/atencion-cronico/28/iniciar-consulta/",
+            {},
+            format="json",
+        )
+        force_authenticate(request, user=admin)
+        request.user = admin
+        view = AtencionCronicoViewSet()
+        view.request = request
+
+        with self.assertRaises(ValidationError) as context:
+            view._registrar_momento(
+                request,
+                28,
+                "fecha_hora_inicio_consulta",
+                requiere="fecha_hora_llegada",
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
+
     @patch(
         "apps.catalogos.Atención_cronico.Api.views.guardar_atencion_desde_modelo"
     )

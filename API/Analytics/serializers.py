@@ -72,13 +72,25 @@ class AnalyticsAtencionSerializer(serializers.Serializer):
     asistio_val = serializers.IntegerField(min_value=-1, max_value=1, default=1)
     duracion_consulta_minutos = serializers.IntegerField(
         min_value=0,
-        required=False,
         allow_null=True,
+        read_only=True,
     )
     tiempo_espera_real_minutos = serializers.IntegerField(
         min_value=0,
-        required=False,
         allow_null=True,
+        read_only=True,
+    )
+    fecha_hora_llegada = serializers.DateTimeField(
+        allow_null=True,
+        read_only=True,
+    )
+    fecha_hora_inicio_consulta = serializers.DateTimeField(
+        allow_null=True,
+        read_only=True,
+    )
+    fecha_hora_fin_consulta = serializers.DateTimeField(
+        allow_null=True,
+        read_only=True,
     )
     receto_medicamento_flag = serializers.IntegerField(
         min_value=0,
