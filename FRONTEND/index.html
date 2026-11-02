@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PacienCare - Panel de Administración</title>
 
-    <link rel="stylesheet" href="css/estilos.css?v=20261029-3">
+    <link rel="stylesheet" href="css/estilos.css?v=20261102-1">
 </head>
 
 <body>
@@ -34,7 +34,7 @@
                     <span class="nav-chevron">▾</span>
                 </a>
                 <div class="submenu-pacientes" id="submenuPacientes" hidden>
-                    <button type="button" 
+                    <button type="button"
                     data-seccion="sector">Sectores</button>
                     <button type="button" 
                     data-seccion="patologiasCronicas">Patologías crónicas</button>
@@ -58,8 +58,8 @@
                     <span class="nav-chevron">▾</span>
                 </a>
                 <div class="submenu-pacientes" id="submenuAtencion" hidden>
-                    <button type="button" 
-                    data-seccion="solicitudesExamenes">Solicitudes de exámenes</button>
+                    <button type="button"
+                    data-seccion="citas">Citas programadas</button>
                 </div>
 
                 <a href="#" class="nav-link" data-seccion="medicamentos">
@@ -452,6 +452,36 @@
                                 </tr>
                             </thead>
                             <tbody id="bodyCitasMedicas"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="citas" class="seccion">
+                    <div class="tabla-contenedor">
+                        <div class="tabla-cabecera">
+                            <input type="text"
+                            id="buscarCitas"
+                            class="buscador"
+                            placeholder="🔍 Buscar citas...">
+                        </div>
+                        <p>Las citas programadas se crean y actualizan automáticamente desde Atención Crónica.</p>
+                        <div class="cargando" id="cargandoCitas">⏳ Cargando citas...</div>
+                        <div class="tabla-scroll tabla-scroll-general">
+                            <table class="tabla" id="tablaCitas">
+                                <thead>
+                                    <tr>
+                                        <th>Id</th>
+                                        <th>Paciente</th>
+                                        <th>Médico</th>
+                                        <th>Fecha y hora</th>
+                                        <th>Estado</th>
+                                        <th>Fecha atención real</th>
+                                        <th>Observaciones</th>
+                                        <th>Fecha creación</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bodyCitas"></tbody>
                             </table>
                         </div>
                     </div>
@@ -1523,6 +1553,6 @@
 
     <!-- Archivo JavaScript principal -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <script src="js/index.js?v=20261029-3"></script>
+    <script src="js/index.js?v=20261102-1"></script>
 </body>
 </html

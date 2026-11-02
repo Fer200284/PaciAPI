@@ -306,6 +306,9 @@ function cargarDatosSeccion(seccionId) {
         case 'citasmedicas':
             cargarCitasMedicas();
             break;
+        case 'citas':
+            cargarCitas();
+            break;
         case 'tratamientos':
             cargarTratamientos();
             break;
@@ -1773,6 +1776,72 @@ async function cargarCitasMedicas() {
     }
 }
 
+async function cargarCitas() {
+    const cargando = document.getElementById('cargandoCitas');
+    const tbody = document.getElementById('bodyCitas');
+    if (cargando) cargando.style.display = 'block';
+    if (tbody) tbody.innerHTML = '';
+
+    try {
+        const [citasRespuesta, pacientesRespuesta, medicosRespuesta] = await Promise.all([
+            fetch(`${API_LOCAL}/citas/`, {
+                headers: getAuthHeaders(),
+                cache: 'no-store'
+            }),
+            fetch(`${API_LOCAL}/pacientes/`, { headers: getAuthHeaders() }),
+            fetch(`${API_LOCAL}/medicos/`, { headers: getAuthHeaders() })
+        ]);
+        if (!citasRespuesta.ok || !pacientesRespuesta.ok || !medicosRespuesta.ok) {
+            throw new Error('No se pudieron cargar las citas y sus relaciones.');
+        }
+
+        const [citas, pacientesData, medicosData] = await Promise.all([
+            citasRespuesta.json(),
+            pacientesRespuesta.json(),
+            medicosRespuesta.json()
+        ]);
+        const pacientes = new Map(
+            safeArray(pacientesData).map(paciente => [String(paciente.id), paciente])
+        );
+        const medicos = new Map(
+            safeArray(medicosData).map(medico => [String(medico.id), medico])
+        );
+
+        if (cargando) cargando.style.display = 'none';
+        safeArray(citas).forEach(cita => {
+            const pacienteId = typeof cita.id_paciente === 'object'
+                ? cita.id_paciente.id
+                : cita.id_paciente;
+            const medicoId = typeof cita.id_medico === 'object'
+                ? cita.id_medico.id
+                : cita.id_medico;
+            const paciente = pacientes.get(String(pacienteId)) || {};
+            const medico = medicos.get(String(medicoId)) || {};
+            const fechaHora = cita.fecha_hora_cita
+                ? `${formatDateTime(cita.fecha_hora_cita).slice(0, 10)} ${formatFechaHoraAmPm(cita.fecha_hora_cita)}`
+                : '-';
+            const fechaReal = cita.fecha_atencion_real
+                ? `${formatDateTime(cita.fecha_atencion_real).slice(0, 10)} ${formatFechaHoraAmPm(cita.fecha_atencion_real)}`
+                : '-';
+            const fila = document.createElement('tr');
+            fila.innerHTML = `
+                <td>${cita.id || ''}</td>
+                <td>${`${textValue(paciente, 'nombre')} ${textValue(paciente, 'apellidos')}`.trim() || 'Sin información'}</td>
+                <td>${`${textValue(medico, 'nombre')} ${textValue(medico, 'apellidos')}`.trim() || 'Sin información'}</td>
+                <td>${fechaHora}</td>
+                <td>${textValue(cita, 'estado') || '-'}</td>
+                <td>${fechaReal}</td>
+                <td>${textValue(cita, 'observaciones') || '-'}</td>
+                <td>${formatDateTime(textValue(cita, 'fecha_creacion')) || '-'}</td>
+            `;
+            tbody.appendChild(fila);
+        });
+    } catch (error) {
+        if (cargando) cargando.textContent = '❌ Error al cargar las citas.';
+        console.error('No se pudieron cargar las citas:', error);
+    }
+}
+
 function renderSeguimientoAtencion(atencion) {
     const momentos = [
         ['Llegada', atencion.fecha_hora_llegada],
@@ -2371,6 +2440,10 @@ async function guardarCitasMedicas() {
     const errorCita = document.getElementById('CitasMedicasError');
     if (horaProximaCita.incompleta) {
         errorCita.textContent = 'Selecciona la hora, los minutos y AM o PM para la próxima cita.';
+        return;
+    }
+    if (fechaProximaCita && !horaProximaCita.valor) {
+        errorCita.textContent = 'Selecciona la hora de la próxima cita para agregarla al catálogo Citas.';
         return;
     }
     if (horaProximaCita.valor && !fechaProximaCita) {
@@ -3182,6 +3255,7 @@ function configurarBuscadores() {
     configurarFiltroInput('buscarEspecialidades', 'tablaEspecialidades');
     configurarFiltroInput('buscarMedicos', 'tablaMedicos');
     configurarFiltroInput('buscarCitasMedicas', 'tablaCitasMedicas');
+    configurarFiltroInput('buscarCitas', 'tablaCitas');
     configurarFiltroInput('buscarTratamientos', 'tablaTratamientos');
     configurarFiltroInput('buscarDetalleTratamiento', 'tablaDetalleTratamiento');
     configurarFiltroInput('buscarMedicamentos', 'tablaMedicamentos');

@@ -17,4 +17,5 @@ urlpatterns = [
     path('', include('apps.catalogos.TipoEntrada.Api.urls')),
     path('', include('apps.catalogos.TipoSalida.Api.urls')),
     path('', include('apps.catalogos.Atención_cronico.Api.urls')),
+    path('', include('apps.catalogos.Citas.Api.urls')),
 ]

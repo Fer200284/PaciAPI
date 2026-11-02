@@ -9,6 +9,7 @@ class AtencionCronicoSerializer(
     fecha_hora_llegada = serializers.DateTimeField(read_only=True)
     fecha_hora_inicio_consulta = serializers.DateTimeField(read_only=True)
     fecha_hora_fin_consulta = serializers.DateTimeField(read_only=True)
+    id_cita = serializers.PrimaryKeyRelatedField(read_only=True)
 
     patient_owned_fields = {
         "id_paciente_patologia": "id_paciente__usuario",
@@ -28,6 +29,12 @@ class AtencionCronicoSerializer(
             "hora_proxima_cita",
             getattr(self.instance, "hora_proxima_cita", None),
         )
+        if fecha and not hora:
+            raise serializers.ValidationError({
+                "hora_proxima_cita": (
+                    "Selecciona la hora para sincronizar la próxima cita."
+                )
+            })
         if hora and not fecha:
             raise serializers.ValidationError({
                 "fecha_proxima_cita": "Se requiere la fecha para guardar la hora de la próxima cita."

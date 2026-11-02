@@ -15,7 +15,8 @@ CATALOGOS_SETTINGS_APPS = [
 'apps.catalogos.TipoSalida',
 'apps.catalogos.Tratamiento',
 'apps.catalogos.Categoria_Medicamento',
-'apps.catalogos.Sector'
+'apps.catalogos.Sector',
+'apps.catalogos.Citas',
 
 
 ]

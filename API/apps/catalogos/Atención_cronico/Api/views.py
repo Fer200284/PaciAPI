@@ -18,6 +18,10 @@ from Analytics.services import (
     eliminar_atencion,
     guardar_atencion_desde_modelo,
 )
+from apps.catalogos.Citas.services import (
+    registrar_llegada_cita,
+    sincronizar_cita_proxima,
+)
 from apps.catalogos.patient_scope import (
     PatientScopedViewSetMixin,
     is_patient_user,
@@ -42,8 +46,8 @@ class AnalyticsStorageUnavailable(APIException):
 class AtencionHasRelatedRecords(APIException):
     status_code = status.HTTP_409_CONFLICT
     default_detail = (
-        "No se puede eliminar la atención porque tiene tratamientos o "
-        "solicitudes de examen vinculados."
+        "No se puede eliminar la atención porque tiene una cita, tratamientos "
+        "o solicitudes de examen vinculados."
     )
     default_code = "atencion_has_related_records"
 
@@ -57,6 +61,7 @@ class AtencionCronicoViewSet(PatientScopedViewSetMixin, viewsets.ModelViewSet):
         try:
             with transaction.atomic():
                 super().perform_create(serializer)
+                sincronizar_cita_proxima(serializer.instance)
                 guardar_atencion_desde_modelo(serializer.instance)
         except ImproperlyConfigured as error:
             logger.error("MongoDB no está configurado: %s", error)
@@ -66,9 +71,19 @@ class AtencionCronicoViewSet(PatientScopedViewSetMixin, viewsets.ModelViewSet):
             raise AnalyticsStorageUnavailable() from error
 
     def perform_update(self, serializer):
+        atencion = serializer.instance
+        anterior = {
+            "fecha_anterior": atencion.fecha_proxima_cita,
+            "hora_anterior": atencion.hora_proxima_cita,
+            "paciente_anterior_id": (
+                atencion.id_paciente_patologia.id_paciente_id
+            ),
+            "medico_anterior_id": atencion.id_medico_id,
+        }
         try:
             with transaction.atomic():
                 super().perform_update(serializer)
+                sincronizar_cita_proxima(serializer.instance, **anterior)
                 guardar_atencion_desde_modelo(serializer.instance)
         except ImproperlyConfigured as error:
             logger.error("MongoDB no está configurado: %s", error)
@@ -131,6 +146,14 @@ class AtencionCronicoViewSet(PatientScopedViewSetMixin, viewsets.ModelViewSet):
                     atencion.asistio = True
                     update_fields.append("asistio")
                 atencion.save(update_fields=update_fields)
+                if campo == "fecha_hora_llegada":
+                    cita = registrar_llegada_cita(
+                        atencion,
+                        atencion.fecha_hora_llegada,
+                    )
+                    if cita:
+                        atencion.id_cita = cita
+                        atencion.save(update_fields=["id_cita"])
                 guardar_atencion_desde_modelo(atencion)
         except ImproperlyConfigured as error:
             logger.error("MongoDB no está configurado: %s", error)

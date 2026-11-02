@@ -1,6 +1,6 @@
 from contextlib import nullcontext
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, call, patch
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models.deletion import ProtectedError
@@ -13,6 +13,29 @@ from .Api.views import (
     AtencionCronicoViewSet,
     AtencionHasRelatedRecords,
 )
+from .Api.serializers import AtencionCronicoSerializer
+
+
+class AtencionCronicoSerializerTests(SimpleTestCase):
+    def test_requires_time_when_next_appointment_date_is_set(self):
+        serializer = AtencionCronicoSerializer(
+            data={"fecha_proxima_cita": "2026-11-12"},
+            partial=True,
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("hora_proxima_cita", serializer.errors)
+
+    def test_accepts_next_appointment_with_date_and_time(self):
+        serializer = AtencionCronicoSerializer(
+            data={
+                "fecha_proxima_cita": "2026-11-12",
+                "hora_proxima_cita": "09:30:00",
+            },
+            partial=True,
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
 
 
 class AtencionCronicoViewSetTests(SimpleTestCase):
@@ -101,6 +124,10 @@ class AtencionCronicoViewSetTests(SimpleTestCase):
         "apps.catalogos.Atención_cronico.Api.views.guardar_atencion_desde_modelo"
     )
     @patch(
+        "apps.catalogos.Atención_cronico.Api.views.registrar_llegada_cita",
+        return_value=None,
+    )
+    @patch(
         "apps.catalogos.Atención_cronico.Api.views.transaction.atomic",
         return_value=nullcontext(),
     )
@@ -111,6 +138,7 @@ class AtencionCronicoViewSetTests(SimpleTestCase):
         get_serializer,
         get_object,
         atomic,
+        registrar_llegada,
         guardar_analitica,
     ):
         atencion = Mock()
@@ -138,6 +166,56 @@ class AtencionCronicoViewSetTests(SimpleTestCase):
         atencion.save.assert_called_once_with(
             update_fields=["fecha_hora_llegada", "asistio"]
         )
+        guardar_analitica.assert_called_once_with(atencion)
+
+    @patch(
+        "apps.catalogos.Atención_cronico.Api.views.guardar_atencion_desde_modelo"
+    )
+    @patch(
+        "apps.catalogos.Atención_cronico.Api.views.registrar_llegada_cita"
+    )
+    @patch(
+        "apps.catalogos.Atención_cronico.Api.views.transaction.atomic",
+        return_value=nullcontext(),
+    )
+    @patch.object(AtencionCronicoViewSet, "get_object")
+    @patch.object(AtencionCronicoViewSet, "get_serializer")
+    def test_arrival_links_attention_to_matched_appointment(
+        self,
+        get_serializer,
+        get_object,
+        atomic,
+        registrar_llegada,
+        guardar_analitica,
+    ):
+        atencion = Mock()
+        atencion.fecha_hora_llegada = None
+        atencion.asistio = False
+        cita = object()
+        registrar_llegada.return_value = cita
+        get_object.return_value = atencion
+        get_serializer.return_value.data = {
+            "id_cita": 33,
+            "fecha_hora_llegada": "2026-10-28T10:00:00-06:00",
+        }
+        staff = SimpleNamespace(is_authenticated=True, rol="Administrador")
+        request = APIRequestFactory().post(
+            "/api/atencion-cronico/28/marcar-llegada/",
+            {},
+            format="json",
+        )
+        force_authenticate(request, user=staff)
+
+        response = AtencionCronicoViewSet.as_view(
+            {"post": "marcar_llegada"}
+        )(request, pk="28")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIs(atencion.id_cita, cita)
+        self.assertEqual(atencion.save.call_args_list, [
+            call(update_fields=["fecha_hora_llegada", "asistio"]),
+            call(update_fields=["id_cita"]),
+        ])
         guardar_analitica.assert_called_once_with(atencion)
 
     @patch.object(AtencionCronicoViewSet, "get_object")
@@ -180,12 +258,16 @@ class AtencionCronicoViewSetTests(SimpleTestCase):
         "apps.catalogos.Atención_cronico.Api.views.guardar_atencion_desde_modelo"
     )
     @patch(
+        "apps.catalogos.Atención_cronico.Api.views.sincronizar_cita_proxima"
+    )
+    @patch(
         "apps.catalogos.Atención_cronico.Api.views.transaction.atomic",
         return_value=nullcontext(),
     )
     def test_create_saves_analytics_document_after_operational_record(
         self,
         atomic,
+        sincronizar_cita,
         guardar_analitica,
     ):
         atencion = SimpleNamespace(pk=28)
@@ -196,10 +278,14 @@ class AtencionCronicoViewSetTests(SimpleTestCase):
         view.perform_create(serializer)
 
         serializer.save.assert_called_once_with()
+        sincronizar_cita.assert_called_once_with(atencion)
         guardar_analitica.assert_called_once_with(atencion)
 
     @patch(
         "apps.catalogos.Atención_cronico.Api.views.guardar_atencion_desde_modelo"
+    )
+    @patch(
+        "apps.catalogos.Atención_cronico.Api.views.sincronizar_cita_proxima"
     )
     @patch(
         "apps.catalogos.Atención_cronico.Api.views.transaction.atomic",
@@ -208,9 +294,16 @@ class AtencionCronicoViewSetTests(SimpleTestCase):
     def test_update_synchronizes_edited_operational_record(
         self,
         atomic,
+        sincronizar_cita,
         guardar_analitica,
     ):
-        atencion = SimpleNamespace(pk=28)
+        atencion = SimpleNamespace(
+            pk=28,
+            fecha_proxima_cita=None,
+            hora_proxima_cita=None,
+            id_paciente_patologia=SimpleNamespace(id_paciente_id=102),
+            id_medico_id=14,
+        )
         serializer = Mock()
         serializer.instance = atencion
         view = AtencionCronicoViewSet()
@@ -218,10 +311,20 @@ class AtencionCronicoViewSetTests(SimpleTestCase):
         view.perform_update(serializer)
 
         serializer.save.assert_called_once_with()
+        sincronizar_cita.assert_called_once_with(
+            atencion,
+            fecha_anterior=None,
+            hora_anterior=None,
+            paciente_anterior_id=102,
+            medico_anterior_id=14,
+        )
         guardar_analitica.assert_called_once_with(atencion)
 
     @patch(
         "apps.catalogos.Atención_cronico.Api.views.guardar_atencion_desde_modelo"
+    )
+    @patch(
+        "apps.catalogos.Atención_cronico.Api.views.sincronizar_cita_proxima"
     )
     @patch(
         "apps.catalogos.Atención_cronico.Api.views.transaction.atomic",
@@ -230,6 +333,7 @@ class AtencionCronicoViewSetTests(SimpleTestCase):
     def test_create_fails_explicitly_when_analytics_storage_is_unavailable(
         self,
         atomic,
+        sincronizar_cita,
         guardar_analitica,
     ):
         guardar_analitica.side_effect = ImproperlyConfigured(

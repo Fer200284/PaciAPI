@@ -20,6 +20,15 @@ class AtencionCronico(models.Model):
       db_column="IdMedico",
   )
 
+  id_cita = models.ForeignKey(
+      "Citas.Citas",
+      on_delete=models.PROTECT,
+      blank=True,
+      null=True,
+      db_column="IdCita",
+      related_name="atenciones",
+  )
+
   fecha_atencion = models.DateField(db_column="FechaAtencion")
 
   fecha_hora_llegada = models.DateTimeField(

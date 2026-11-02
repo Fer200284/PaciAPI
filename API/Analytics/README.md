@@ -113,11 +113,11 @@ Gerencia puede consultar todas las atenciones y Paciente únicamente las de su
 ficha. `id_atencion`, `id_paciente`, `id_medico` e `id_patologia` deben ser los
 IDs reales de los registros operacionales, no IDs de cuentas de usuario.
 
-El modelo operacional actual no registra la hora de llegada ni el inicio y
-fin de la consulta. Por eso no se puede calcular todavía la espera ni la
-duración reales; esos campos solo deben llenarse cuando la app o el sistema
-capture esos tiempos. Los valores `15` y `10` que se guardaron antes de este
-cambio eran valores de ejemplo y no mediciones reales.
+El modelo operacional guarda las horas de llegada, inicio y fin de la consulta.
+La espera y duración reales se calculan solo cuando existen las marcas
+necesarias; mientras no se capturen, sus métricas permanecen en `null`. Los
+valores `15` y `10` que se guardaron antes de este cambio eran valores de
+ejemplo y no mediciones reales.
 
 ### Registrar tiempos reales de atención
 
@@ -140,3 +140,19 @@ MongoDB guarda las marcas como texto legible en horario de Managua,
 cálculos se hacen usando las fechas reales almacenadas en SQL antes de
 formatearlas para MongoDB. Los documentos antiguos solo cambian a este formato
 cuando su atención vuelva a sincronizarse.
+
+## Catálogo relacional de citas
+
+`GET /api/citas/` consulta el catálogo relacional `dbo.Citas`. Es de solo
+lectura desde la API: las citas se crean o actualizan al guardar la próxima
+cita en Atención Crónica, y se muestran únicamente cuando se proporciona
+fecha y hora. La migración importa las próximas citas existentes que ya tengan
+ambos valores.
+
+Al cambiar la programación se actualiza la cita que aún está `PROGRAMADA`.
+Al cancelar la próxima cita desde Atención Crónica, se conserva su registro con
+estado `CANCELADA`. Al marcar la llegada de una atención, si coincide con una
+cita programada del mismo paciente, médico y fecha, la cita pasa a `ASISTIO`,
+se guarda `FechaAtencionReal` y se vincula mediante `Atencion_Cronico.IdCita`.
+Los demás campos opcionales permanecen vacíos; `FechaCreacion` usa el valor
+predeterminado de SQL Server.
