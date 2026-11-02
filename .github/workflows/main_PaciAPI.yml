@@ -170,14 +170,20 @@ jobs:
             --name PaciAPI \
             --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true ENABLE_ORYX_BUILD=true
 
-      - name: Deploy to Azure App Service
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: PaciAPI
-          resource-group-name: rg-paciencare
-          package: app-deploy.zip
-          clean: true
-          startup-command: python API/manage.py migrate --noinput && gunicorn --chdir API config.wsgi:application --bind=0.0.0.0 --timeout 600
+      - name: Configure startup command
+        run: |
+          az webapp config set \
+            --resource-group rg-paciencare \
+            --name PaciAPI \
+            --startup-file "python API/manage.py migrate --noinput && gunicorn --chdir API config.wsgi:application --bind=0.0.0.0 --timeout 600"
+
+      - name: Deploy ZIP with Azure build automation
+        run: |
+          az webapp deploy \
+            --resource-group rg-paciencare \
+            --name PaciAPI \
+            --src-path app-deploy.zip \
+            --type zip
 
       - name: Restart App Service and verify startup
         run: |
