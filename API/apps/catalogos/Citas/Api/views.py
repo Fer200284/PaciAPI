@@ -38,7 +38,7 @@ class CitasViewSet(
             Q(estado=Citas.Estado.ASISTIO)
             | Q(
                 estado=Citas.Estado.PROGRAMADA,
-                fecha_hora_cita__date__gte=timezone.localdate(),
+                fecha_hora_cita__gte=timezone.now(),
             )
         ).distinct()
 

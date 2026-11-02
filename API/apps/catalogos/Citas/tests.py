@@ -47,9 +47,13 @@ class CitasSerializerTests(SimpleTestCase):
 
 
 class CitasViewSetTests(SimpleTestCase):
-    @patch("apps.catalogos.Citas.Api.views.timezone.localdate")
-    def test_lists_future_appointments_and_attended_history(self, localdate):
-        localdate.return_value = date(2026, 11, 12)
+    @patch("apps.catalogos.Citas.Api.views.timezone.now")
+    def test_lists_future_appointments_and_attended_history(self, now):
+        ahora = timezone.make_aware(
+            datetime(2026, 11, 12, 10, 30),
+            timezone.get_current_timezone(),
+        )
+        now.return_value = ahora
         queryset = Mock()
         queryset.all.return_value = queryset
         queryset.filter.return_value = queryset
@@ -64,7 +68,7 @@ class CitasViewSetTests(SimpleTestCase):
         queryset.filter.assert_any_call(
             Q(estado=Citas.Estado.ASISTIO)
             | Q(estado=Citas.Estado.PROGRAMADA)
-            & Q(fecha_hora_cita__date__gte=date(2026, 11, 12))
+            & Q(fecha_hora_cita__gte=ahora)
         )
         queryset.distinct.assert_called_once_with()
 
