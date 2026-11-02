@@ -713,6 +713,22 @@ body.formulario-bloqueado {
     line-height: 1.45;
 }
 
+.citas-grupo-encabezado td {
+    padding: 14px 18px;
+    background: #eaf1f9;
+    color: var(--primary-dark);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.citas-grupo-vacio td,
+.citas-sin-resultados td {
+    padding: 14px 18px;
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+}
+
 .filtros-tabla {
     display: flex;
     align-items: center;

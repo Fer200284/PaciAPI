@@ -1808,37 +1808,151 @@ async function cargarCitas() {
         );
 
         if (cargando) cargando.style.display = 'none';
+
+        const hoy = formatDateTime(new Date()).slice(0, 10);
+        const manana = sumarDiasFecha(hoy, 1);
+        const grupos = [
+            { id: 'hoy', titulo: 'Citas de hoy', fecha: hoy, citas: [] },
+            { id: 'manana', titulo: 'Citas de mañana', fecha: manana, citas: [] },
+            { id: 'proximos', titulo: 'Próximos días', citas: [] },
+            { id: 'historial', titulo: 'Historial de citas', citas: [] }
+        ];
+
         safeArray(citas).forEach(cita => {
-            const pacienteId = typeof cita.id_paciente === 'object'
-                ? cita.id_paciente.id
-                : cita.id_paciente;
-            const medicoId = typeof cita.id_medico === 'object'
-                ? cita.id_medico.id
-                : cita.id_medico;
-            const paciente = pacientes.get(String(pacienteId)) || {};
-            const medico = medicos.get(String(medicoId)) || {};
-            const fechaHora = cita.fecha_hora_cita
-                ? `${formatDateTime(cita.fecha_hora_cita).slice(0, 10)} ${formatFechaHoraAmPm(cita.fecha_hora_cita)}`
-                : '-';
-            const fila = document.createElement('tr');
-            fila.innerHTML = `
-                <td>${cita.id || ''}</td>
-                <td>${`${textValue(paciente, 'nombre')} ${textValue(paciente, 'apellidos')}`.trim() || 'Sin información'}</td>
-                <td>${`${textValue(medico, 'nombre')} ${textValue(medico, 'apellidos')}`.trim() || 'Sin información'}</td>
-                <td>${fechaHora}</td>
-                <td>${textValue(cita, 'estado') || '-'}</td>
-                <td>${formatDateTime(cita.fecha_atencion_real) || '-'}</td>
-                <td>${textValue(cita, 'observaciones') || '-'}</td>
-                <td>${formatDateTime(textValue(cita, 'fecha_creacion')) || '-'}</td>
-                <td>${cita.estado === 'PROGRAMADA'
-                    ? `<button class="btn btn-sm btn-secundario" onclick="marcarLlegadaCita(${Number(cita.id)}, this)">Marcar llegada de cita</button>${cita.id_atencion ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(cita.id_atencion)}, this)">Cancelar cita</button>` : ''}`
-                    : 'Llegada registrada'}</td>
-            `;
-            tbody.appendChild(fila);
+            const fechaProgramada = formatDateTime(cita.fecha_hora_cita).slice(0, 10);
+            const fechaReal = formatDateTime(cita.fecha_atencion_real).slice(0, 10);
+            const fechaGrupo = cita.estado === 'ASISTIO'
+                ? (fechaReal || fechaProgramada)
+                : fechaProgramada;
+            let grupo;
+
+            if (cita.estado === 'ASISTIO' && fechaGrupo < hoy) {
+                grupo = grupos[3];
+            } else if (fechaGrupo === hoy) {
+                grupo = grupos[0];
+            } else if (fechaGrupo === manana) {
+                grupo = grupos[1];
+            } else if (fechaGrupo > manana) {
+                grupo = grupos[2];
+            } else {
+                return;
+            }
+
+            grupo.citas.push(cita);
         });
+
+        grupos.forEach(grupo => {
+            grupo.citas.sort((a, b) => (
+                new Date(a.fecha_hora_cita) - new Date(b.fecha_hora_cita)
+            ) * (grupo.id === 'historial' ? -1 : 1));
+
+            const encabezado = document.createElement('tr');
+            encabezado.className = 'citas-grupo-encabezado';
+            encabezado.dataset.citaGroupHeading = grupo.id;
+            encabezado.innerHTML = `
+                <td colspan="9">${grupo.titulo}${grupo.fecha ? ` · ${formatearFechaAgenda(grupo.fecha)}` : ''} (${grupo.citas.length})</td>
+            `;
+            tbody.appendChild(encabezado);
+
+            if (!grupo.citas.length) {
+                const vacio = document.createElement('tr');
+                vacio.className = 'citas-grupo-vacio';
+                vacio.dataset.citaGroupEmpty = grupo.id;
+                vacio.innerHTML = '<td colspan="9">No hay citas en este grupo.</td>';
+                tbody.appendChild(vacio);
+                return;
+            }
+
+            grupo.citas.forEach(cita => {
+                const pacienteId = typeof cita.id_paciente === 'object'
+                    ? cita.id_paciente.id
+                    : cita.id_paciente;
+                const medicoId = typeof cita.id_medico === 'object'
+                    ? cita.id_medico.id
+                    : cita.id_medico;
+                const paciente = pacientes.get(String(pacienteId)) || {};
+                const medico = medicos.get(String(medicoId)) || {};
+                const fechaHora = cita.fecha_hora_cita
+                    ? `${formatDateTime(cita.fecha_hora_cita).slice(0, 10)} ${formatFechaHoraAmPm(cita.fecha_hora_cita)}`
+                    : '-';
+                const fila = document.createElement('tr');
+                fila.dataset.citaRow = 'true';
+                fila.dataset.citaGroup = grupo.id;
+                fila.innerHTML = `
+                    <td>${cita.id || ''}</td>
+                    <td>${`${textValue(paciente, 'nombre')} ${textValue(paciente, 'apellidos')}`.trim() || 'Sin información'}</td>
+                    <td>${`${textValue(medico, 'nombre')} ${textValue(medico, 'apellidos')}`.trim() || 'Sin información'}</td>
+                    <td>${fechaHora}</td>
+                    <td>${textValue(cita, 'estado') || '-'}</td>
+                    <td>${formatDateTime(cita.fecha_atencion_real) || '-'}</td>
+                    <td>${textValue(cita, 'observaciones') || '-'}</td>
+                    <td>${formatDateTime(textValue(cita, 'fecha_creacion')) || '-'}</td>
+                    <td>${cita.estado === 'PROGRAMADA'
+                        ? `<button class="btn btn-sm btn-secundario" onclick="marcarLlegadaCita(${Number(cita.id)}, this)">Marcar llegada de cita</button>${cita.id_atencion ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(cita.id_atencion)}, this)">Cancelar cita</button>` : ''}`
+                        : 'Llegada registrada'}</td>
+                `;
+                tbody.appendChild(fila);
+            });
+        });
+
+        const sinResultados = document.createElement('tr');
+        sinResultados.className = 'citas-sin-resultados';
+        sinResultados.hidden = true;
+        sinResultados.innerHTML = '<td colspan="9">No se encontraron citas con esa búsqueda.</td>';
+        tbody.appendChild(sinResultados);
     } catch (error) {
         if (cargando) cargando.textContent = '❌ Error al cargar las citas.';
         console.error('No se pudieron cargar las citas:', error);
+    }
+}
+
+function sumarDiasFecha(fecha, dias) {
+    const [anio, mes, dia] = fecha.split('-').map(Number);
+    const siguiente = new Date(Date.UTC(anio, mes - 1, dia + dias));
+    return [
+        siguiente.getUTCFullYear(),
+        String(siguiente.getUTCMonth() + 1).padStart(2, '0'),
+        String(siguiente.getUTCDate()).padStart(2, '0')
+    ].join('-');
+}
+
+function formatearFechaAgenda(fecha) {
+    const [anio, mes, dia] = fecha.split('-').map(Number);
+    return new Intl.DateTimeFormat('es-NI', {
+        timeZone: 'America/Managua',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    }).format(new Date(Date.UTC(anio, mes - 1, dia, 18)));
+}
+
+function filtrarCitasPorTexto(filtro) {
+    const tbody = document.querySelector('#tablaCitas tbody');
+    if (!tbody) return;
+
+    const filas = Array.from(tbody.querySelectorAll('tr[data-cita-row]'));
+    let coincidencias = 0;
+    filas.forEach(fila => {
+        const coincide = fila.textContent.toLowerCase().includes(filtro);
+        fila.style.display = coincide ? '' : 'none';
+        if (coincide) coincidencias += 1;
+    });
+
+    tbody.querySelectorAll('[data-cita-group-heading]').forEach(encabezado => {
+        const grupo = encabezado.dataset.citaGroupHeading;
+        const hayCoincidencias = filas.some(fila => (
+            fila.dataset.citaGroup === grupo && fila.style.display !== 'none'
+        ));
+        const vacio = tbody.querySelector(`[data-cita-group-empty="${grupo}"]`);
+        encabezado.style.display = hayCoincidencias || !filtro ? '' : 'none';
+        if (vacio) {
+            vacio.style.display = !filtro && !hayCoincidencias ? '' : 'none';
+        }
+    });
+
+    const sinResultados = tbody.querySelector('.citas-sin-resultados');
+    if (sinResultados) {
+        sinResultados.hidden = Boolean(!filtro || coincidencias);
     }
 }
 
@@ -3307,6 +3421,11 @@ function configurarFiltroInput(idInput, idTabla) {
 
     input.addEventListener('keyup', () => {
         const filtro = input.value.toLowerCase();
+        if (idTabla === 'tablaCitas') {
+            filtrarCitasPorTexto(filtro);
+            return;
+        }
+
         const filas = document.querySelectorAll(`#${idTabla} tbody tr`);
 
         filas.forEach(fila => {
@@ -3328,6 +3447,8 @@ function actualizarNumeracion(cuerpo) {
 
 function configurarOrdenYSeleccion() {
     document.querySelectorAll('.tabla').forEach(tabla => {
+        if (tabla.id === 'tablaCitas') return;
+
         const contenedor = tabla.closest('.tabla-contenedor');
         const cabecera = contenedor?.querySelector('.tabla-cabecera');
         const cuerpo = tabla.querySelector('tbody');
