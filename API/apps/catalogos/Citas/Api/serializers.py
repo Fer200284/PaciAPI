@@ -7,9 +7,6 @@ from ..models import Citas
 
 class CitasSerializer(serializers.ModelSerializer):
     id_atencion = serializers.SerializerMethodField()
-    fecha_hora_llegada = serializers.SerializerMethodField()
-    fecha_hora_inicio_consulta = serializers.SerializerMethodField()
-    fecha_hora_fin_consulta = serializers.SerializerMethodField()
 
     class Meta:
         model = Citas
@@ -23,9 +20,6 @@ class CitasSerializer(serializers.ModelSerializer):
             "observaciones",
             "fecha_creacion",
             "id_atencion",
-            "fecha_hora_llegada",
-            "fecha_hora_inicio_consulta",
-            "fecha_hora_fin_consulta",
         )
         read_only_fields = fields
 
@@ -56,15 +50,3 @@ class CitasSerializer(serializers.ModelSerializer):
     def get_id_atencion(self, cita):
         atencion = self._atencion(cita)
         return atencion.pk if atencion else None
-
-    def get_fecha_hora_llegada(self, cita):
-        atencion = self._atencion(cita)
-        return atencion.fecha_hora_llegada if atencion else None
-
-    def get_fecha_hora_inicio_consulta(self, cita):
-        atencion = self._atencion(cita)
-        return atencion.fecha_hora_inicio_consulta if atencion else None
-
-    def get_fecha_hora_fin_consulta(self, cita):
-        atencion = self._atencion(cita)
-        return atencion.fecha_hora_fin_consulta if atencion else None

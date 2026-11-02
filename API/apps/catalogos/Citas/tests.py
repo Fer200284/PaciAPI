@@ -1,10 +1,12 @@
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.db.models import Q
 from django.test import SimpleTestCase
 from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.test import APIRequestFactory
 
 from .models import Citas
 from .services import sincronizar_cita_proxima
@@ -19,26 +21,6 @@ class CitasSerializerTests(SimpleTestCase):
         self.assertTrue(all(
             field.read_only for field in serializer.fields.values()
         ))
-
-    def test_includes_tracking_data_from_linked_attention(self):
-        llegada = timezone.now()
-        inicio = llegada + timedelta(minutes=5)
-        atencion = SimpleNamespace(
-            pk=12,
-            fecha_hora_llegada=llegada,
-            fecha_hora_inicio_consulta=inicio,
-            fecha_hora_fin_consulta=None,
-        )
-        cita = SimpleNamespace(_atenciones_cita=[atencion])
-        serializer = CitasSerializer()
-
-        self.assertEqual(serializer.get_id_atencion(cita), 12)
-        self.assertEqual(serializer.get_fecha_hora_llegada(cita), llegada)
-        self.assertEqual(
-            serializer.get_fecha_hora_inicio_consulta(cita),
-            inicio,
-        )
-        self.assertIsNone(serializer.get_fecha_hora_fin_consulta(cita))
 
     @patch("apps.catalogos.Citas.Api.serializers.AtencionCronico.objects.filter")
     def test_resolves_appointments_without_a_saved_foreign_key(self, filter_atenciones):
@@ -66,17 +48,7 @@ class CitasSerializerTests(SimpleTestCase):
 
 class CitasViewSetTests(SimpleTestCase):
     @patch("apps.catalogos.Citas.Api.views.timezone.localdate")
-    @patch("apps.catalogos.Citas.Api.views.timezone.now")
-    def test_lists_future_and_unfinished_appointments_today(
-        self,
-        now,
-        localdate,
-    ):
-        instante = timezone.make_aware(
-            datetime(2026, 11, 12, 9, 0),
-            timezone.get_current_timezone(),
-        )
-        now.return_value = instante
+    def test_lists_future_appointments_and_attended_history(self, localdate):
         localdate.return_value = date(2026, 11, 12)
         queryset = Mock()
         queryset.all.return_value = queryset
@@ -90,16 +62,94 @@ class CitasViewSetTests(SimpleTestCase):
         view.get_queryset()
 
         queryset.filter.assert_any_call(
-            estado=Citas.Estado.PROGRAMADA,
-        )
-        queryset.filter.assert_any_call(
-            Q(fecha_hora_cita__gt=instante)
-            | Q(
-                fecha_hora_cita__date=date(2026, 11, 12),
-                atenciones__fecha_hora_fin_consulta__isnull=True,
-            )
+            Q(estado=Citas.Estado.ASISTIO)
+            | Q(estado=Citas.Estado.PROGRAMADA)
+            & Q(fecha_hora_cita__date__gte=date(2026, 11, 12))
         )
         queryset.distinct.assert_called_once_with()
+
+    @patch("apps.catalogos.Citas.Api.views.timezone.now")
+    @patch("apps.catalogos.Citas.Api.views.transaction.atomic")
+    @patch("apps.catalogos.Citas.Api.views.Citas.objects.filter")
+    def test_marks_scheduled_appointment_attended_without_touching_attention(
+        self,
+        filter_citas,
+        atomic,
+        now,
+    ):
+        instante = timezone.make_aware(
+            datetime(2026, 11, 12, 9, 0),
+            timezone.get_current_timezone(),
+        )
+        now.return_value = instante
+        atomic.return_value.__enter__.return_value = None
+        atomic.return_value.__exit__.return_value = False
+        filter_citas.return_value.update.return_value = 1
+        cita = Mock()
+        cita.estado = Citas.Estado.PROGRAMADA
+        cita.pk = 42
+        view = CitasViewSet()
+        view.get_object = Mock(return_value=cita)
+        view.get_serializer = Mock(return_value=SimpleNamespace(
+            data={"id": 42, "estado": Citas.Estado.ASISTIO}
+        ))
+        request = APIRequestFactory().post(
+            "/api/citas/42/marcar-llegada/",
+            {},
+            format="json",
+        )
+        request.user = SimpleNamespace(
+            is_authenticated=True,
+            rol="Administrador",
+        )
+
+        response = view.marcar_llegada(request, pk="42")
+
+        self.assertEqual(response.status_code, 200)
+        filter_citas.assert_called_once_with(
+            pk=42,
+            estado=Citas.Estado.PROGRAMADA,
+        )
+        filter_citas.return_value.update.assert_called_once_with(
+            estado=Citas.Estado.ASISTIO,
+            fecha_atencion_real=instante,
+        )
+        cita.refresh_from_db.assert_called_once_with()
+
+    @patch("apps.catalogos.Citas.Api.views.transaction.atomic")
+    def test_does_not_mark_an_already_attended_appointment(self, atomic):
+        atomic.return_value.__enter__.return_value = None
+        atomic.return_value.__exit__.return_value = False
+        cita = SimpleNamespace(estado=Citas.Estado.ASISTIO)
+        view = CitasViewSet()
+        view.get_object = Mock(return_value=cita)
+        request = APIRequestFactory().post(
+            "/api/citas/42/marcar-llegada/",
+            {},
+            format="json",
+        )
+        request.user = SimpleNamespace(
+            is_authenticated=True,
+            rol="Administrador",
+        )
+
+        with self.assertRaises(ValidationError):
+            view.marcar_llegada(request, pk="42")
+
+    def test_rejects_arrival_for_unauthorized_roles(self):
+        view = CitasViewSet()
+        view.get_object = Mock()
+        request = APIRequestFactory().post(
+            "/api/citas/42/marcar-llegada/",
+            {},
+            format="json",
+        )
+        request.user = SimpleNamespace(is_authenticated=True, rol="Medico")
+
+        with self.assertRaises(PermissionDenied):
+            view.marcar_llegada(request, pk="42")
+
+        view.get_object.assert_not_called()
 
 
 class SincronizarCitaProximaTests(SimpleTestCase):

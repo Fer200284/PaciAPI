@@ -1766,7 +1766,7 @@ async function cargarCitasMedicas() {
                 ✏️ Editar</button><button 
                 class="btn btn-sm btn-peligro"
                  onclick="eliminarCita(${c.id})">
-                 🗑️ Eliminar</button></div></td>
+                 🗑️ Eliminar</button>${renderSeguimientoAtencion(c)}${c.fecha_proxima_cita ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(c.id)}, this)">Cancelar próxima cita</button>` : ''}</div></td>
             `;
             tbody.appendChild(tr);
         });
@@ -1809,8 +1809,6 @@ async function cargarCitas() {
 
         if (cargando) cargando.style.display = 'none';
         safeArray(citas).forEach(cita => {
-            if (cita.fecha_hora_fin_consulta) return;
-
             const pacienteId = typeof cita.id_paciente === 'object'
                 ? cita.id_paciente.id
                 : cita.id_paciente;
@@ -1829,14 +1827,12 @@ async function cargarCitas() {
                 <td>${`${textValue(medico, 'nombre')} ${textValue(medico, 'apellidos')}`.trim() || 'Sin información'}</td>
                 <td>${fechaHora}</td>
                 <td>${textValue(cita, 'estado') || '-'}</td>
+                <td>${formatDateTime(cita.fecha_atencion_real) || '-'}</td>
                 <td>${textValue(cita, 'observaciones') || '-'}</td>
                 <td>${formatDateTime(textValue(cita, 'fecha_creacion')) || '-'}</td>
-                <td>${renderSeguimientoAtencion({
-                    id: cita.id_atencion,
-                    fecha_hora_llegada: cita.fecha_hora_llegada,
-                    fecha_hora_inicio_consulta: cita.fecha_hora_inicio_consulta,
-                    fecha_hora_fin_consulta: cita.fecha_hora_fin_consulta
-                }, Boolean(cita.id_atencion))}${cita.id_atencion ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(cita.id_atencion)}, this)">Cancelar cita</button>` : ''}</td>
+                <td>${cita.estado === 'PROGRAMADA'
+                    ? `<button class="btn btn-sm btn-secundario" onclick="marcarLlegadaCita(${Number(cita.id)}, this)">Marcar llegada de cita</button>${cita.id_atencion ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(cita.id_atencion)}, this)">Cancelar cita</button>` : ''}`
+                    : 'Llegada registrada'}</td>
             `;
             tbody.appendChild(fila);
         });
@@ -1846,7 +1842,7 @@ async function cargarCitas() {
     }
 }
 
-function renderSeguimientoAtencion(atencion, permitirAcciones = false) {
+function renderSeguimientoAtencion(atencion) {
     const momentos = [
         ['Llegada', atencion.fecha_hora_llegada],
         ['Inicio', atencion.fecha_hora_inicio_consulta],
@@ -1859,11 +1855,11 @@ function renderSeguimientoAtencion(atencion, permitirAcciones = false) {
         .join('');
     let accion = '';
 
-    if (permitirAcciones && !atencion.fecha_hora_llegada) {
+    if (!atencion.fecha_hora_llegada) {
         accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'marcar-llegada', this)">Marcar llegada</button>`;
-    } else if (permitirAcciones && !atencion.fecha_hora_inicio_consulta) {
+    } else if (!atencion.fecha_hora_inicio_consulta) {
         accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'iniciar-consulta', this)">Iniciar consulta</button>`;
-    } else if (permitirAcciones && !atencion.fecha_hora_fin_consulta) {
+    } else if (!atencion.fecha_hora_fin_consulta) {
         accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'finalizar-consulta', this)">Finalizar consulta</button>`;
     }
 
@@ -1875,6 +1871,40 @@ function renderSeguimientoAtencion(atencion, permitirAcciones = false) {
             ? '<button type="button" class="btn btn-sm seguimiento-atencion-finalizada" role="status" disabled>✓ Finalizado</button>'
             : ''}
     `;
+}
+
+async function marcarLlegadaCita(id, boton) {
+    if (!Number.isInteger(id) || id < 1) {
+        alert('No se pudo identificar la cita.');
+        return;
+    }
+
+    const textoOriginal = boton.textContent;
+    boton.disabled = true;
+    boton.textContent = 'Registrando...';
+    try {
+        const respuesta = await fetch(
+            `${API_LOCAL}/citas/${id}/marcar-llegada/`,
+            {
+                method: 'POST',
+                headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                body: '{}'
+            }
+        );
+        if (!respuesta.ok) {
+            const error = await respuesta.json().catch(() => null);
+            const detalle = error?.detail
+                || Object.values(error || {}).flat().join(' ')
+                || `El servidor respondió ${respuesta.status}.`;
+            throw new Error(detalle);
+        }
+        await cargarCitas();
+    } catch (error) {
+        console.error('No se pudo marcar la llegada de la cita:', error);
+        alert(error.message || 'No se pudo marcar la llegada de la cita.');
+        boton.disabled = false;
+        boton.textContent = textoOriginal;
+    }
 }
 
 async function marcarMomentoAtencion(id, accion, boton) {
