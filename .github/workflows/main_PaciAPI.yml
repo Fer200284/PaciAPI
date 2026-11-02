@@ -180,7 +180,41 @@ jobs:
           az webapp config set \
             --resource-group rg-paciencare \
             --name PaciAPI \
-            --startup-file "python API/manage.py migrate --noinput && gunicorn --chdir API config.wsgi:application --bind=0.0.0.0 --timeout 600"
+            --startup-file 'export PYTHONPATH=/home/site/wwwroot/.python_packages/lib/site-packages:$PYTHONPATH && python API/manage.py migrate --noinput && gunicorn --chdir API config.wsgi:application --bind=0.0.0.0 --timeout 600'
+
+      - name: Wait for App Service SCM to stabilize
+        run: |
+          app_host=$(az webapp show \
+            --resource-group rg-paciencare \
+            --name PaciAPI \
+            --query defaultHostName \
+            --output tsv)
+          scm_host=$(printf '%s' "$app_host" | sed 's/^[^.]*\./&scm./')
+          consecutive_successes=0
+
+          for attempt in $(seq 1 18); do
+            status=$(curl --silent --output /dev/null --max-time 10 \
+              --write-out "%{http_code}" "https://${scm_host}/" || true)
+
+            case "$status" in
+              2??|401)
+                consecutive_successes=$((consecutive_successes + 1))
+                echo "SCM is responding (attempt $attempt/18, HTTP $status; stable checks: $consecutive_successes/3)."
+                if [ "$consecutive_successes" -ge 3 ]; then
+                  exit 0
+                fi
+                ;;
+              *)
+                consecutive_successes=0
+                echo "Waiting for SCM after configuration (attempt $attempt/18, HTTP $status)."
+                ;;
+            esac
+
+            sleep 10
+          done
+
+          echo "App Service SCM did not stabilize after configuration."
+          exit 1
 
       - name: Deploy to Azure App Service
         uses: azure/webapps-deploy@v3
@@ -189,7 +223,6 @@ jobs:
           resource-group-name: rg-paciencare
           package: app-deploy.zip
           clean: true
-          startup-command: export PYTHONPATH=/home/site/wwwroot/.python_packages/lib/site-packages:$PYTHONPATH && python API/manage.py migrate --noinput && gunicorn --chdir API config.wsgi:application --bind=0.0.0.0 --timeout 600
 
       - name: Restart App Service and verify startup
         run: |
