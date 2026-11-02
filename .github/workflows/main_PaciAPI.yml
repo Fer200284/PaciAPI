@@ -131,6 +131,12 @@ jobs:
           echo "--- Migración Pacientes dentro del ZIP ---"
           unzip -l app-deploy.zip | grep "Pacientes/migrations"
 
+          echo "--- Catálogo Citas dentro del ZIP ---"
+          unzip -l app-deploy.zip | grep -F "API/apps/catalogos/Citas/migrations/0001_initial.py"
+          unzip -l app-deploy.zip | grep -F "API/apps/catalogos/Citas/migrations/0002_importar_proximas_citas.py"
+          unzip -l app-deploy.zip | grep -F "API/apps/catalogos/Atención_cronico/migrations/0004_atencioncronico_id_cita.py"
+          unzip -p app-deploy.zip API/apps/catalogos/settings_apps.py | grep -F "apps.catalogos.Citas"
+
       - name: Sign in to Azure with GitHub OIDC
         uses: azure/login@v2
         with:
@@ -146,4 +152,4 @@ jobs:
           resource-group-name: rg-paciencare
           package: app-deploy.zip
           clean: true
-          startup-command: gunicorn --chdir API config.wsgi:application --bind=0.0.0.0 --timeout 600
+          startup-command: python API/manage.py migrate --noinput && gunicorn --chdir API config.wsgi:application --bind=0.0.0.0 --timeout 600
