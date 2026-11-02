@@ -146,6 +146,23 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           allow-no-subscriptions: true
 
+      - name: Start Azure App Service
+        run: |
+          az webapp start --resource-group rg-paciencare --name PaciAPI
+
+          for attempt in $(seq 1 12); do
+            state=$(az webapp show --resource-group rg-paciencare --name PaciAPI --query state --output tsv)
+            if [ "$state" = "Running" ]; then
+              echo "App Service is running."
+              exit 0
+            fi
+            echo "Waiting for App Service to start (attempt $attempt/12, state: $state)"
+            sleep 5
+          done
+
+          echo "App Service did not enter the Running state."
+          exit 1
+
       - name: Enable Oryx dependency installation
         run: |
           az webapp config appsettings set \
