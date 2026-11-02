@@ -1357,6 +1357,19 @@ body.formulario-bloqueado {
     gap: 6px;
 }
 
+.acciones-atencion .btn-sm {
+    box-sizing: border-box;
+    display: inline-flex;
+    width: 160px;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    text-align: center;
+    white-space: normal;
+    line-height: 1.15;
+}
+
 #tablaExamenesLaboratorio th,
 #tablaMedicos th,
 #tablaTratamientos th,

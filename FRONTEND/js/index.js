@@ -1766,7 +1766,7 @@ async function cargarCitasMedicas() {
                 ✏️ Editar</button><button 
                 class="btn btn-sm btn-peligro"
                  onclick="eliminarCita(${c.id})">
-                 🗑️ Eliminar</button>${renderSeguimientoAtencion(c)}${c.fecha_proxima_cita ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(c.id)}, this)">Cancelar próxima cita</button>` : ''}</div></td>
+                 🗑️ Eliminar</button>${renderSeguimientoAtencion(c)}</div></td>
             `;
             tbody.appendChild(tr);
         });
