@@ -1927,7 +1927,7 @@ async function cargarCitas() {
                     <td>${textValue(cita, 'observaciones') || '-'}</td>
                     <td>${formatDateTime(textValue(cita, 'fecha_creacion')) || '-'}</td>
                     <td>${cita.estado === 'PROGRAMADA'
-                        ? `${puedeMarcarLlegada ? `<button class="btn btn-sm btn-secundario" onclick="marcarLlegadaCita(${Number(cita.id)}, this)">Marcar llegada de cita</button>` : '<span>Próxima cita</span>'}${cita.id_atencion ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(cita.id_atencion)}, this)">Cancelar cita</button>` : ''}`
+                        ? `${puedeMarcarLlegada ? `<button class="btn btn-sm btn-secundario" onclick="marcarLlegadaCita(${Number(cita.id)}, this)">Marcar llegada de cita</button>` : ''}${cita.id_atencion ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(cita.id_atencion)}, this)">Cancelar cita</button>` : ''}`
                         : 'Llegada registrada'}</td>
                 `;
                 tbody.appendChild(fila);
