@@ -1915,6 +1915,9 @@ async function cargarCitas() {
                 const fechaHora = cita.fecha_hora_cita
                     ? `${formatDateTime(cita.fecha_hora_cita).slice(0, 10)} ${formatFechaHoraAmPm(cita.fecha_hora_cita)}`
                     : '-';
+                const puedeMarcarLlegada = (
+                    cita.estado === 'PROGRAMADA' && fechaProgramada === hoy
+                );
                 const fila = document.createElement('tr');
                 fila.dataset.citaRow = 'true';
                 fila.dataset.citaGroup = grupo.id;
@@ -1928,7 +1931,7 @@ async function cargarCitas() {
                     <td>${textValue(cita, 'observaciones') || '-'}</td>
                     <td>${formatDateTime(textValue(cita, 'fecha_creacion')) || '-'}</td>
                     <td>${cita.estado === 'PROGRAMADA'
-                        ? `<button class="btn btn-sm btn-secundario" onclick="marcarLlegadaCita(${Number(cita.id)}, this)">Marcar llegada de cita</button>${cita.id_atencion ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(cita.id_atencion)}, this)">Cancelar cita</button>` : ''}`
+                        ? `${puedeMarcarLlegada ? `<button class="btn btn-sm btn-secundario" onclick="marcarLlegadaCita(${Number(cita.id)}, this)">Marcar llegada de cita</button>` : '<span>Próxima cita</span>'}${cita.id_atencion ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(cita.id_atencion)}, this)">Cancelar cita</button>` : ''}`
                         : 'Llegada registrada'}</td>
                 `;
                 tbody.appendChild(fila);
@@ -2678,8 +2681,11 @@ async function guardarCitasMedicas() {
 
         if (idsRelacion.length) {
             cerrarModal('modalCitasMedicas');
-            cargarCitasMedicas();
-            cargarDashboard();
+            await Promise.all([
+                cargarCitas(),
+                cargarCitasMedicas(),
+                cargarDashboard()
+            ]);
         }
     } catch (error) {
         console.error(error);

@@ -64,6 +64,16 @@ class CitasViewSet(
                         "programada."
                     )
                 })
+            fecha_cita_local = timezone.localtime(
+                cita.fecha_hora_cita
+            ).date()
+            if fecha_cita_local > timezone.localdate():
+                raise ValidationError({
+                    "fecha_hora_cita": (
+                        "No se puede marcar llegada antes de la fecha "
+                        "programada de la cita."
+                    )
+                })
 
             actualizadas = Citas.objects.filter(
                 pk=cita.pk,

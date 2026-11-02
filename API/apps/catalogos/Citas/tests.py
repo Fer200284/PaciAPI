@@ -71,8 +71,13 @@ class CitasViewSetTests(SimpleTestCase):
     @patch("apps.catalogos.Citas.Api.views.timezone.now")
     @patch("apps.catalogos.Citas.Api.views.transaction.atomic")
     @patch("apps.catalogos.Citas.Api.views.Citas.objects.filter")
+    @patch(
+        "apps.catalogos.Citas.Api.views.timezone.localdate",
+        return_value=date(2026, 11, 12),
+    )
     def test_marks_scheduled_appointment_attended_without_touching_attention(
         self,
+        localdate,
         filter_citas,
         atomic,
         now,
@@ -87,6 +92,7 @@ class CitasViewSetTests(SimpleTestCase):
         filter_citas.return_value.update.return_value = 1
         cita = Mock()
         cita.estado = Citas.Estado.PROGRAMADA
+        cita.fecha_hora_cita = instante
         cita.pk = 42
         view = CitasViewSet()
         view.get_object = Mock(return_value=cita)
@@ -115,6 +121,46 @@ class CitasViewSetTests(SimpleTestCase):
             fecha_atencion_real=instante,
         )
         cita.refresh_from_db.assert_called_once_with()
+
+    @patch("apps.catalogos.Citas.Api.views.transaction.atomic")
+    @patch(
+        "apps.catalogos.Citas.Api.views.timezone.localdate",
+        return_value=date(2026, 11, 12),
+    )
+    def test_does_not_mark_a_future_appointment_as_attended(
+        self,
+        localdate,
+        atomic,
+    ):
+        atomic.return_value.__enter__.return_value = None
+        atomic.return_value.__exit__.return_value = False
+        cita = SimpleNamespace(
+            estado=Citas.Estado.PROGRAMADA,
+            fecha_hora_cita=timezone.make_aware(
+                datetime(2026, 11, 13, 9, 0),
+                timezone.get_current_timezone(),
+            ),
+        )
+        view = CitasViewSet()
+        view.get_object = Mock(return_value=cita)
+        request = APIRequestFactory().post(
+            "/api/citas/42/marcar-llegada/",
+            {},
+            format="json",
+        )
+        request.user = SimpleNamespace(
+            is_authenticated=True,
+            rol="Administrador",
+        )
+
+        with patch(
+            "apps.catalogos.Citas.Api.views.Citas.objects.filter"
+        ) as filter_citas:
+            with self.assertRaises(ValidationError) as context:
+                view.marcar_llegada(request, pk="42")
+
+        self.assertIn("fecha_hora_cita", context.exception.detail)
+        filter_citas.assert_not_called()
 
     @patch("apps.catalogos.Citas.Api.views.transaction.atomic")
     def test_does_not_mark_an_already_attended_appointment(self, atomic):
