@@ -1907,6 +1907,7 @@ async function cargarCitas() {
                     : cita.id_medico;
                 const paciente = pacientes.get(String(pacienteId)) || {};
                 const medico = medicos.get(String(medicoId)) || {};
+                const fechaProgramada = formatDateTime(cita.fecha_hora_cita).slice(0, 10);
                 const fechaHora = cita.fecha_hora_cita
                     ? `${formatDateTime(cita.fecha_hora_cita).slice(0, 10)} ${formatFechaHoraAmPm(cita.fecha_hora_cita)}`
                     : '-';
