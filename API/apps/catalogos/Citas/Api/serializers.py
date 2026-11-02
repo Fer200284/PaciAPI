@@ -7,6 +7,8 @@ from ..models import Citas
 
 class CitasSerializer(serializers.ModelSerializer):
     id_atencion = serializers.SerializerMethodField()
+    estado = serializers.SerializerMethodField()
+    fecha_atencion_real = serializers.SerializerMethodField()
 
     class Meta:
         model = Citas
@@ -50,3 +52,25 @@ class CitasSerializer(serializers.ModelSerializer):
     def get_id_atencion(self, cita):
         atencion = self._atencion(cita)
         return atencion.pk if atencion else None
+
+    def _es_cita_futura(self, cita):
+        return (
+            timezone.localtime(cita.fecha_hora_cita).date()
+            > timezone.localdate()
+        )
+
+    def get_estado(self, cita):
+        if (
+            cita.estado == Citas.Estado.ASISTIO
+            and self._es_cita_futura(cita)
+        ):
+            return Citas.Estado.PROGRAMADA
+        return cita.estado
+
+    def get_fecha_atencion_real(self, cita):
+        if (
+            cita.estado == Citas.Estado.ASISTIO
+            and self._es_cita_futura(cita)
+        ):
+            return None
+        return cita.fecha_atencion_real

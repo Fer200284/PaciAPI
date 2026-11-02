@@ -1861,9 +1861,11 @@ async function cargarCitas() {
         safeArray(citas).forEach(cita => {
             const fechaProgramada = formatDateTime(cita.fecha_hora_cita).slice(0, 10);
             const fechaReal = formatDateTime(cita.fecha_atencion_real).slice(0, 10);
-            const fechaGrupo = cita.estado === 'ASISTIO'
-                ? (fechaReal || fechaProgramada)
-                : fechaProgramada;
+            const fechaGrupo = fechaProgramada >= hoy
+                ? fechaProgramada
+                : (cita.estado === 'ASISTIO'
+                    ? (fechaReal || fechaProgramada)
+                    : fechaProgramada);
             let grupo;
 
             if (cita.estado === 'ASISTIO' && fechaGrupo < hoy) {
@@ -1882,6 +1884,8 @@ async function cargarCitas() {
         });
 
         grupos.forEach(grupo => {
+            if (!grupo.citas.length) return;
+
             grupo.citas.sort((a, b) => (
                 new Date(a.fecha_hora_cita) - new Date(b.fecha_hora_cita)
             ) * (grupo.id === 'historial' ? -1 : 1));
@@ -1893,15 +1897,6 @@ async function cargarCitas() {
                 <td colspan="9">${grupo.titulo}${grupo.fecha ? ` · ${formatearFechaAgenda(grupo.fecha)}` : ''} (${grupo.citas.length})</td>
             `;
             tbody.appendChild(encabezado);
-
-            if (!grupo.citas.length) {
-                const vacio = document.createElement('tr');
-                vacio.className = 'citas-grupo-vacio';
-                vacio.dataset.citaGroupEmpty = grupo.id;
-                vacio.innerHTML = '<td colspan="9">No hay citas en este grupo.</td>';
-                tbody.appendChild(vacio);
-                return;
-            }
 
             grupo.citas.forEach(cita => {
                 const pacienteId = typeof cita.id_paciente === 'object'
@@ -1937,6 +1932,13 @@ async function cargarCitas() {
                 tbody.appendChild(fila);
             });
         });
+
+        if (!grupos.some(grupo => grupo.citas.length)) {
+            const vacio = document.createElement('tr');
+            vacio.className = 'citas-grupo-vacio';
+            vacio.innerHTML = '<td colspan="9">No hay citas próximas ni atenciones registradas.</td>';
+            tbody.appendChild(vacio);
+        }
 
         const sinResultados = document.createElement('tr');
         sinResultados.className = 'citas-sin-resultados';

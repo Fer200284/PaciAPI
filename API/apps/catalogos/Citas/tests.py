@@ -22,6 +22,58 @@ class CitasSerializerTests(SimpleTestCase):
             field.read_only for field in serializer.fields.values()
         ))
 
+    @patch(
+        "apps.catalogos.Citas.Api.serializers.timezone.localdate",
+        return_value=date(2026, 11, 12),
+    )
+    def test_future_appointment_stays_scheduled_after_old_early_arrival(
+        self,
+        localdate,
+    ):
+        cita = SimpleNamespace(
+            estado=Citas.Estado.ASISTIO,
+            fecha_hora_cita=timezone.make_aware(
+                datetime(2026, 11, 17, 15, 5),
+                timezone.get_current_timezone(),
+            ),
+            fecha_atencion_real=timezone.make_aware(
+                datetime(2026, 11, 12, 9, 0),
+                timezone.get_current_timezone(),
+            ),
+        )
+        serializer = CitasSerializer()
+
+        self.assertEqual(
+            serializer.get_estado(cita),
+            Citas.Estado.PROGRAMADA,
+        )
+        self.assertIsNone(serializer.get_fecha_atencion_real(cita))
+
+    @patch(
+        "apps.catalogos.Citas.Api.serializers.timezone.localdate",
+        return_value=date(2026, 11, 12),
+    )
+    def test_today_appointment_keeps_its_attended_status_and_arrival(
+        self,
+        localdate,
+    ):
+        llegada = timezone.make_aware(
+            datetime(2026, 11, 12, 9, 0),
+            timezone.get_current_timezone(),
+        )
+        cita = SimpleNamespace(
+            estado=Citas.Estado.ASISTIO,
+            fecha_hora_cita=llegada,
+            fecha_atencion_real=llegada,
+        )
+        serializer = CitasSerializer()
+
+        self.assertEqual(
+            serializer.get_estado(cita),
+            Citas.Estado.ASISTIO,
+        )
+        self.assertEqual(serializer.get_fecha_atencion_real(cita), llegada)
+
     @patch("apps.catalogos.Citas.Api.serializers.AtencionCronico.objects.filter")
     def test_resolves_appointments_without_a_saved_foreign_key(self, filter_atenciones):
         fecha_hora = timezone.make_aware(
