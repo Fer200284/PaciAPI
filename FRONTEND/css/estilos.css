@@ -675,6 +675,44 @@ body.formulario-bloqueado {
     background: #ffffff;
 }
 
+.citas-aviso {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    margin: 16px 20px;
+    padding: 13px 16px;
+    border: 1px solid #d5e5f7;
+    border-left: 4px solid var(--primary-color);
+    border-radius: 10px;
+    background: linear-gradient(110deg, #f2f7fd, #f8fbff);
+    color: var(--text-main);
+}
+
+.citas-aviso-icono {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    place-items: center;
+    border-radius: 9px;
+    background: #e1edfb;
+    font-size: 19px;
+}
+
+.citas-aviso strong {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--primary-dark);
+    font-size: 0.9rem;
+}
+
+.citas-aviso p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
 .filtros-tabla {
     display: flex;
     align-items: center;

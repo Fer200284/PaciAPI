@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PacienCare - Panel de Administración</title>
 
-    <link rel="stylesheet" href="css/estilos.css?v=20261102-1">
+    <link rel="stylesheet" href="css/estilos.css?v=20261102-2">
 </head>
 
 <body>
@@ -465,7 +465,13 @@
                             class="buscador"
                             placeholder="🔍 Buscar citas...">
                         </div>
-                        <p>Las citas programadas se crean y actualizan automáticamente desde Atención Crónica.</p>
+                        <aside class="citas-aviso" role="note">
+                            <span class="citas-aviso-icono" aria-hidden="true">📅</span>
+                            <div>
+                                <strong>Agenda sincronizada</strong>
+                                <p>Las citas se crean y actualizan automáticamente desde Atención Crónica.</p>
+                            </div>
+                        </aside>
                         <div class="cargando" id="cargandoCitas">⏳ Cargando citas...</div>
                         <div class="tabla-scroll tabla-scroll-general">
                             <table class="tabla" id="tablaCitas">
