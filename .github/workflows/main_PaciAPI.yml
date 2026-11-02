@@ -10,6 +10,10 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: paciapi-production-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -164,12 +168,12 @@ jobs:
           echo "App Service did not enter the Running state."
           exit 1
 
-      - name: Enable Oryx dependency installation
+      - name: Disable remote Oryx build (dependencies are bundled)
         run: |
           az webapp config appsettings set \
             --resource-group rg-paciencare \
             --name PaciAPI \
-            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=true ENABLE_ORYX_BUILD=true
+            --settings SCM_DO_BUILD_DURING_DEPLOYMENT=false ENABLE_ORYX_BUILD=false
 
       - name: Configure startup command
         run: |
