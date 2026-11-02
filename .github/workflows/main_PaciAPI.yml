@@ -153,3 +153,23 @@ jobs:
           package: app-deploy.zip
           clean: true
           startup-command: python API/manage.py migrate --noinput && gunicorn --chdir API config.wsgi:application --bind=0.0.0.0 --timeout 600
+
+      - name: Restart App Service and verify startup
+        run: |
+          az webapp restart --resource-group rg-paciencare --name PaciAPI
+          app_url=$(az webapp show --resource-group rg-paciencare --name PaciAPI --query defaultHostName --output tsv)
+
+          for attempt in $(seq 1 18); do
+            status=$(curl --silent --output /tmp/paciapi-health.txt --write-out "%{http_code}" \
+              "https://${app_url}/health/" || true)
+            if [ "$status" = "200" ]; then
+              cat /tmp/paciapi-health.txt
+              exit 0
+            fi
+            echo "Waiting for API startup (attempt $attempt/18, HTTP $status)"
+            sleep 10
+          done
+
+          cat /tmp/paciapi-health.txt
+          echo "App Service did not become healthy after deployment."
+          exit 1
