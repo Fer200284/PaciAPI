@@ -721,6 +721,10 @@ body.formulario-bloqueado {
     letter-spacing: 0.02em;
 }
 
+.tabla tbody tr.citas-grupo-encabezado td {
+    text-align: left;
+}
+
 .citas-grupo-vacio td,
 .citas-sin-resultados td {
     padding: 14px 18px;
