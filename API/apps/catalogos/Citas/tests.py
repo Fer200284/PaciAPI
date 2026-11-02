@@ -1,7 +1,8 @@
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from django.db.models import Q
 from django.test import SimpleTestCase
 from django.utils import timezone
 
@@ -19,16 +20,67 @@ class CitasSerializerTests(SimpleTestCase):
             field.read_only for field in serializer.fields.values()
         ))
 
+    def test_includes_tracking_data_from_linked_attention(self):
+        llegada = timezone.now()
+        inicio = llegada + timedelta(minutes=5)
+        atencion = SimpleNamespace(
+            pk=12,
+            fecha_hora_llegada=llegada,
+            fecha_hora_inicio_consulta=inicio,
+            fecha_hora_fin_consulta=None,
+        )
+        cita = SimpleNamespace(_atenciones_cita=[atencion])
+        serializer = CitasSerializer()
+
+        self.assertEqual(serializer.get_id_atencion(cita), 12)
+        self.assertEqual(serializer.get_fecha_hora_llegada(cita), llegada)
+        self.assertEqual(
+            serializer.get_fecha_hora_inicio_consulta(cita),
+            inicio,
+        )
+        self.assertIsNone(serializer.get_fecha_hora_fin_consulta(cita))
+
+    @patch("apps.catalogos.Citas.Api.serializers.AtencionCronico.objects.filter")
+    def test_resolves_appointments_without_a_saved_foreign_key(self, filter_atenciones):
+        fecha_hora = timezone.make_aware(
+            datetime(2026, 11, 12, 9, 30),
+            timezone.get_current_timezone(),
+        )
+        cita = SimpleNamespace(
+            fecha_hora_cita=fecha_hora,
+            id_paciente_id=14,
+            id_medico_id=6,
+            _atenciones_cita=[],
+        )
+        atencion = SimpleNamespace(pk=22)
+        filter_atenciones.return_value.order_by.return_value.first.return_value = atencion
+
+        self.assertEqual(CitasSerializer().get_id_atencion(cita), 22)
+        filter_atenciones.assert_called_once_with(
+            id_paciente_patologia__id_paciente_id=14,
+            id_medico_id=6,
+            fecha_proxima_cita=date(2026, 11, 12),
+            hora_proxima_cita=time(9, 30),
+        )
+
 
 class CitasViewSetTests(SimpleTestCase):
+    @patch("apps.catalogos.Citas.Api.views.timezone.localdate")
     @patch("apps.catalogos.Citas.Api.views.timezone.now")
-    def test_lists_only_future_programmed_appointments(self, now):
+    def test_lists_future_and_unfinished_appointments_today(
+        self,
+        now,
+        localdate,
+    ):
         instante = timezone.make_aware(
             datetime(2026, 11, 12, 9, 0),
             timezone.get_current_timezone(),
         )
         now.return_value = instante
+        localdate.return_value = date(2026, 11, 12)
         queryset = Mock()
+        queryset.all.return_value = queryset
+        queryset.filter.return_value = queryset
         view = CitasViewSet()
         view.queryset = queryset
         view.request = SimpleNamespace(
@@ -37,10 +89,17 @@ class CitasViewSetTests(SimpleTestCase):
 
         view.get_queryset()
 
-        queryset.filter.assert_called_once_with(
+        queryset.filter.assert_any_call(
             estado=Citas.Estado.PROGRAMADA,
-            fecha_hora_cita__gt=instante,
         )
+        queryset.filter.assert_any_call(
+            Q(fecha_hora_cita__gt=instante)
+            | Q(
+                fecha_hora_cita__date=date(2026, 11, 12),
+                atenciones__fecha_hora_fin_consulta__isnull=True,
+            )
+        )
+        queryset.distinct.assert_called_once_with()
 
 
 class SincronizarCitaProximaTests(SimpleTestCase):

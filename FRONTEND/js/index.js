@@ -1766,7 +1766,7 @@ async function cargarCitasMedicas() {
                 ✏️ Editar</button><button 
                 class="btn btn-sm btn-peligro"
                  onclick="eliminarCita(${c.id})">
-                 🗑️ Eliminar</button>${renderSeguimientoAtencion(c)}${c.fecha_proxima_cita ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(c.id)}, this)">Cancelar próxima cita</button>` : ''}</div></td>
+                 🗑️ Eliminar</button></div></td>
             `;
             tbody.appendChild(tr);
         });
@@ -1809,6 +1809,8 @@ async function cargarCitas() {
 
         if (cargando) cargando.style.display = 'none';
         safeArray(citas).forEach(cita => {
+            if (cita.fecha_hora_fin_consulta) return;
+
             const pacienteId = typeof cita.id_paciente === 'object'
                 ? cita.id_paciente.id
                 : cita.id_paciente;
@@ -1829,6 +1831,12 @@ async function cargarCitas() {
                 <td>${textValue(cita, 'estado') || '-'}</td>
                 <td>${textValue(cita, 'observaciones') || '-'}</td>
                 <td>${formatDateTime(textValue(cita, 'fecha_creacion')) || '-'}</td>
+                <td>${renderSeguimientoAtencion({
+                    id: cita.id_atencion,
+                    fecha_hora_llegada: cita.fecha_hora_llegada,
+                    fecha_hora_inicio_consulta: cita.fecha_hora_inicio_consulta,
+                    fecha_hora_fin_consulta: cita.fecha_hora_fin_consulta
+                }, Boolean(cita.id_atencion))}${cita.id_atencion ? `<button class="btn btn-sm btn-peligro" onclick="cancelarProximaCita(${Number(cita.id_atencion)}, this)">Cancelar cita</button>` : ''}</td>
             `;
             tbody.appendChild(fila);
         });
@@ -1838,7 +1846,7 @@ async function cargarCitas() {
     }
 }
 
-function renderSeguimientoAtencion(atencion) {
+function renderSeguimientoAtencion(atencion, permitirAcciones = false) {
     const momentos = [
         ['Llegada', atencion.fecha_hora_llegada],
         ['Inicio', atencion.fecha_hora_inicio_consulta],
@@ -1851,11 +1859,11 @@ function renderSeguimientoAtencion(atencion) {
         .join('');
     let accion = '';
 
-    if (!atencion.fecha_hora_llegada) {
+    if (permitirAcciones && !atencion.fecha_hora_llegada) {
         accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'marcar-llegada', this)">Marcar llegada</button>`;
-    } else if (!atencion.fecha_hora_inicio_consulta) {
+    } else if (permitirAcciones && !atencion.fecha_hora_inicio_consulta) {
         accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'iniciar-consulta', this)">Iniciar consulta</button>`;
-    } else if (!atencion.fecha_hora_fin_consulta) {
+    } else if (permitirAcciones && !atencion.fecha_hora_fin_consulta) {
         accion = `<button class="btn btn-sm btn-secundario" onclick="marcarMomentoAtencion(${Number(atencion.id)}, 'finalizar-consulta', this)">Finalizar consulta</button>`;
     }
 
@@ -1894,7 +1902,7 @@ async function marcarMomentoAtencion(id, accion, boton) {
                 || `El servidor respondió ${respuesta.status}.`;
             throw new Error(detalle);
         }
-        await cargarCitasMedicas();
+        await Promise.all([cargarCitas(), cargarCitasMedicas()]);
     } catch (error) {
         console.error('No se pudo registrar el horario de atención:', error);
         alert(error.message || 'No se pudo registrar el horario de atención.');
@@ -2533,7 +2541,7 @@ async function cancelarProximaCita(id, boton) {
                 || `El servidor respondió ${respuesta.status}.`;
             throw new Error(detalle);
         }
-        await cargarCitasMedicas();
+        await Promise.all([cargarCitas(), cargarCitasMedicas()]);
     } catch (error) {
         console.error('No se pudo cancelar la próxima cita:', error);
         alert(error.message || 'No se pudo cancelar la próxima cita.');
