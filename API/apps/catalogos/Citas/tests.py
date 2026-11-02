@@ -131,6 +131,7 @@ class SincronizarCitaProximaTests(SimpleTestCase):
             ),
             estado=Citas.Estado.PROGRAMADA,
             fecha_atencion_real=None,
+            observaciones="Control de seguimiento",
             save=Mock(),
         )
         filter_citas.return_value = [cita]
@@ -145,14 +146,28 @@ class SincronizarCitaProximaTests(SimpleTestCase):
         )
 
     @patch("apps.catalogos.Citas.services.Citas.objects.filter")
-    def test_does_not_change_appointment_when_there_is_no_match(
+    @patch("apps.catalogos.Citas.services.Citas.objects.create")
+    def test_creates_attended_appointment_when_no_schedule_matches(
         self,
+        create,
         filter_citas,
     ):
         self.atencion.fecha_atencion = date(2026, 11, 12)
         filter_citas.return_value = []
+        create.return_value = Mock()
+        llegada = timezone.make_aware(
+            datetime(2026, 11, 12, 9, 35),
+            timezone.get_current_timezone(),
+        )
 
-        self.assertIsNone(registrar_llegada_cita(
-            self.atencion,
-            timezone.now(),
-        ))
+        resultado = registrar_llegada_cita(self.atencion, llegada)
+
+        self.assertIs(resultado, create.return_value)
+        create.assert_called_once_with(
+            id_paciente_id=14,
+            id_medico_id=6,
+            fecha_hora_cita=llegada,
+            estado=Citas.Estado.ASISTIO,
+            fecha_atencion_real=llegada,
+            observaciones="Control de seguimiento",
+        )
