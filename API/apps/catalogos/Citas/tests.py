@@ -6,8 +6,9 @@ from django.test import SimpleTestCase
 from django.utils import timezone
 
 from .models import Citas
-from .services import registrar_llegada_cita, sincronizar_cita_proxima
+from .services import sincronizar_cita_proxima
 from .Api.serializers import CitasSerializer
+from .Api.views import CitasViewSet
 
 
 class CitasSerializerTests(SimpleTestCase):
@@ -17,6 +18,29 @@ class CitasSerializerTests(SimpleTestCase):
         self.assertTrue(all(
             field.read_only for field in serializer.fields.values()
         ))
+
+
+class CitasViewSetTests(SimpleTestCase):
+    @patch("apps.catalogos.Citas.Api.views.timezone.now")
+    def test_lists_only_future_programmed_appointments(self, now):
+        instante = timezone.make_aware(
+            datetime(2026, 11, 12, 9, 0),
+            timezone.get_current_timezone(),
+        )
+        now.return_value = instante
+        queryset = Mock()
+        view = CitasViewSet()
+        view.queryset = queryset
+        view.request = SimpleNamespace(
+            user=SimpleNamespace(is_authenticated=True, rol="Administrador")
+        )
+
+        view.get_queryset()
+
+        queryset.filter.assert_called_once_with(
+            estado=Citas.Estado.PROGRAMADA,
+            fecha_hora_cita__gt=instante,
+        )
 
 
 class SincronizarCitaProximaTests(SimpleTestCase):
@@ -113,61 +137,3 @@ class SincronizarCitaProximaTests(SimpleTestCase):
         self.assertIs(resultado, cita)
         self.assertEqual(cita.estado, Citas.Estado.CANCELADA)
         cita.save.assert_called_once_with(update_fields=["estado"])
-
-    @patch("apps.catalogos.Citas.services.Citas.objects.filter")
-    def test_marks_nearest_same_day_programmed_appointment_attended(
-        self,
-        filter_citas,
-    ):
-        llegada = timezone.make_aware(
-            datetime(2026, 11, 12, 9, 35),
-            timezone.get_current_timezone(),
-        )
-        self.atencion.fecha_atencion = date(2026, 11, 12)
-        cita = SimpleNamespace(
-            fecha_hora_cita=timezone.make_aware(
-                datetime(2026, 11, 12, 9, 30),
-                timezone.get_current_timezone(),
-            ),
-            estado=Citas.Estado.PROGRAMADA,
-            fecha_atencion_real=None,
-            observaciones="Control de seguimiento",
-            save=Mock(),
-        )
-        filter_citas.return_value = [cita]
-
-        resultado = registrar_llegada_cita(self.atencion, llegada)
-
-        self.assertIs(resultado, cita)
-        self.assertEqual(cita.estado, Citas.Estado.ASISTIO)
-        self.assertEqual(cita.fecha_atencion_real, llegada)
-        cita.save.assert_called_once_with(
-            update_fields=["estado", "fecha_atencion_real"]
-        )
-
-    @patch("apps.catalogos.Citas.services.Citas.objects.filter")
-    @patch("apps.catalogos.Citas.services.Citas.objects.create")
-    def test_creates_attended_appointment_when_no_schedule_matches(
-        self,
-        create,
-        filter_citas,
-    ):
-        self.atencion.fecha_atencion = date(2026, 11, 12)
-        filter_citas.return_value = []
-        create.return_value = Mock()
-        llegada = timezone.make_aware(
-            datetime(2026, 11, 12, 9, 35),
-            timezone.get_current_timezone(),
-        )
-
-        resultado = registrar_llegada_cita(self.atencion, llegada)
-
-        self.assertIs(resultado, create.return_value)
-        create.assert_called_once_with(
-            id_paciente_id=14,
-            id_medico_id=6,
-            fecha_hora_cita=llegada,
-            estado=Citas.Estado.ASISTIO,
-            fecha_atencion_real=llegada,
-            observaciones="Control de seguimiento",
-        )

@@ -18,10 +18,7 @@ from Analytics.services import (
     eliminar_atencion,
     guardar_atencion_desde_modelo,
 )
-from apps.catalogos.Citas.services import (
-    registrar_llegada_cita,
-    sincronizar_cita_proxima,
-)
+from apps.catalogos.Citas.services import sincronizar_cita_proxima
 from apps.catalogos.patient_scope import (
     PatientScopedViewSetMixin,
     is_patient_user,
@@ -146,14 +143,6 @@ class AtencionCronicoViewSet(PatientScopedViewSetMixin, viewsets.ModelViewSet):
                     atencion.asistio = True
                     update_fields.append("asistio")
                 atencion.save(update_fields=update_fields)
-                if campo == "fecha_hora_llegada":
-                    cita = registrar_llegada_cita(
-                        atencion,
-                        atencion.fecha_hora_llegada,
-                    )
-                    if cita:
-                        atencion.id_cita = cita
-                        atencion.save(update_fields=["id_cita"])
                 guardar_atencion_desde_modelo(atencion)
         except ImproperlyConfigured as error:
             logger.error("MongoDB no está configurado: %s", error)

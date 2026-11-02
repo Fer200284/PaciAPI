@@ -1820,9 +1820,6 @@ async function cargarCitas() {
             const fechaHora = cita.fecha_hora_cita
                 ? `${formatDateTime(cita.fecha_hora_cita).slice(0, 10)} ${formatFechaHoraAmPm(cita.fecha_hora_cita)}`
                 : '-';
-            const fechaReal = cita.fecha_atencion_real
-                ? `${formatDateTime(cita.fecha_atencion_real).slice(0, 10)} ${formatFechaHoraAmPm(cita.fecha_atencion_real)}`
-                : '-';
             const fila = document.createElement('tr');
             fila.innerHTML = `
                 <td>${cita.id || ''}</td>
@@ -1830,7 +1827,6 @@ async function cargarCitas() {
                 <td>${`${textValue(medico, 'nombre')} ${textValue(medico, 'apellidos')}`.trim() || 'Sin información'}</td>
                 <td>${fechaHora}</td>
                 <td>${textValue(cita, 'estado') || '-'}</td>
-                <td>${fechaReal}</td>
                 <td>${textValue(cita, 'observaciones') || '-'}</td>
                 <td>${formatDateTime(textValue(cita, 'fecha_creacion')) || '-'}</td>
             `;
