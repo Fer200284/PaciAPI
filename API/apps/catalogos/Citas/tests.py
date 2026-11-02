@@ -26,6 +26,7 @@ class SincronizarCitaProximaTests(SimpleTestCase):
             id_medico_id=6,
             fecha_proxima_cita=date(2026, 11, 12),
             hora_proxima_cita=time(9, 30),
+            observaciones="Control de seguimiento",
         )
 
     @patch("apps.catalogos.Citas.services.Citas.objects.filter")
@@ -49,6 +50,7 @@ class SincronizarCitaProximaTests(SimpleTestCase):
             id_medico_id=6,
             fecha_hora_cita=esperado,
             estado=Citas.Estado.PROGRAMADA,
+            observaciones="Control de seguimiento",
         )
 
     @patch("apps.catalogos.Citas.services.Citas.objects.filter")
@@ -70,7 +72,25 @@ class SincronizarCitaProximaTests(SimpleTestCase):
             "id_paciente",
             "id_medico",
             "fecha_hora_cita",
+            "observaciones",
         ])
+
+    @patch("apps.catalogos.Citas.services.Citas.objects.filter")
+    @patch("apps.catalogos.Citas.services.Citas.objects.create")
+    def test_truncates_observations_to_catalog_field_limit(
+        self,
+        create,
+        filter_citas,
+    ):
+        filter_citas.return_value.order_by.return_value.first.return_value = None
+        self.atencion.observaciones = "a" * 700
+
+        sincronizar_cita_proxima(self.atencion)
+
+        self.assertEqual(
+            create.call_args.kwargs["observaciones"],
+            "a" * 500,
+        )
 
     @patch("apps.catalogos.Citas.services.Citas.objects.filter")
     def test_cancels_linked_programmed_appointment_when_schedule_cleared(

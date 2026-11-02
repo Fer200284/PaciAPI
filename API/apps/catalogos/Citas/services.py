@@ -23,6 +23,11 @@ def _buscar_cita_programada(paciente_id, medico_id, fecha_hora):
     ).order_by("pk").first()
 
 
+def _observaciones_atencion(atencion):
+    observaciones = atencion.observaciones
+    return observaciones[:500] if observaciones else None
+
+
 def sincronizar_cita_proxima(
     atencion,
     fecha_anterior=None,
@@ -72,6 +77,10 @@ def sincronizar_cita_proxima(
             fecha_hora_cita=fecha_hora_actual,
         ).order_by("pk").first()
         if existente and existente.estado != Citas.Estado.PROGRAMADA:
+            observaciones = _observaciones_atencion(atencion)
+            if existente.observaciones != observaciones:
+                existente.observaciones = observaciones
+                existente.save(update_fields=["observaciones"])
             return existente
 
     cita = cita_anterior
@@ -88,15 +97,18 @@ def sincronizar_cita_proxima(
             id_medico_id=medico_actual_id,
             fecha_hora_cita=fecha_hora_actual,
             estado=Citas.Estado.PROGRAMADA,
+            observaciones=_observaciones_atencion(atencion),
         )
 
     cita.id_paciente_id = paciente_actual_id
     cita.id_medico_id = medico_actual_id
     cita.fecha_hora_cita = fecha_hora_actual
+    cita.observaciones = _observaciones_atencion(atencion)
     cita.save(update_fields=[
         "id_paciente",
         "id_medico",
         "fecha_hora_cita",
+        "observaciones",
     ])
     return cita
 

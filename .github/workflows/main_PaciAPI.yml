@@ -134,6 +134,7 @@ jobs:
           echo "--- Catálogo Citas dentro del ZIP ---"
           unzip -l app-deploy.zip | grep -F "API/apps/catalogos/Citas/migrations/0001_initial.py"
           unzip -l app-deploy.zip | grep -F "API/apps/catalogos/Citas/migrations/0002_importar_proximas_citas.py"
+          unzip -l app-deploy.zip | grep -F "API/apps/catalogos/Citas/migrations/0003_sincronizar_observaciones.py"
           unzip -l app-deploy.zip | grep -F "API/apps/catalogos/Atención_cronico/migrations/0004_atencioncronico_id_cita.py"
           unzip -p app-deploy.zip API/apps/catalogos/settings_apps.py | grep -F "apps.catalogos.Citas"
 
