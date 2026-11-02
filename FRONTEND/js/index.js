@@ -32,6 +32,7 @@ const INACTIVITY_TIMEOUT_MS = 2 * 60 * 1000;
 const API_STATUS_TIMEOUT_MS = 5000;
 let inactivityTimer = null;
 let ultimoEstadoApi = null;
+let fechaAgendaVista = null;
 
 function setEstadoApi(online) {
     const estadoApi = document.getElementById('estadoApi');
@@ -84,6 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!await verificarSesion()) return;
     verificarEstadoApi();
     setInterval(verificarEstadoApi, 5000);
+    iniciarActualizacionDiariaCitas();
     bloquearNavegacionAtras();
     iniciarTemporizadorInactividad();
     configurarNavegacionSidebar();
@@ -94,6 +96,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     cargarDashboard();
     cargarDatosSeccionActiva();
 });
+
+function iniciarActualizacionDiariaCitas() {
+    fechaAgendaVista = formatDateTime(new Date()).slice(0, 10);
+
+    const actualizarSiCambioFecha = () => {
+        const fechaActual = formatDateTime(new Date()).slice(0, 10);
+        if (fechaActual === fechaAgendaVista) return;
+
+        fechaAgendaVista = fechaActual;
+        if (document.getElementById('citas')?.classList.contains('activa')) {
+            cargarCitas();
+        }
+    };
+
+    setInterval(actualizarSiCambioFecha, 60000);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) actualizarSiCambioFecha();
+    });
+}
 
 function bloquearNavegacionAtras() {
     if (!window.history || !window.history.pushState) return;
