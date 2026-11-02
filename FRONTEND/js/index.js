@@ -1727,6 +1727,25 @@ async function cargarCitasMedicas() {
         });
         if (cargando) cargando.style.display = 'none';
 
+        citas.sort((a, b) => {
+            const llegadaA = a.fecha_hora_llegada
+                ? new Date(a.fecha_hora_llegada).getTime()
+                : null;
+            const llegadaB = b.fecha_hora_llegada
+                ? new Date(b.fecha_hora_llegada).getTime()
+                : null;
+
+            if (llegadaA !== null && llegadaB !== null && llegadaA !== llegadaB) {
+                return llegadaB - llegadaA;
+            }
+            if (llegadaA === null && llegadaB !== null) return 1;
+            if (llegadaB === null && llegadaA !== null) return -1;
+
+            const fechaA = String(a.fecha_atencion || '');
+            const fechaB = String(b.fecha_atencion || '');
+            return fechaB.localeCompare(fechaA) || Number(b.id) - Number(a.id);
+        });
+
         citas.forEach((c) => {
             const relacionId = typeof c.id_paciente_patologia === 'object'
                 ? c.id_paciente_patologia.id
